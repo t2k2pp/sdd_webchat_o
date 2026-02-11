@@ -8,13 +8,19 @@ class GeminiClient implements LlmProviderClient {
     required Dio dio,
     required String model,
     required String apiKey,
+    required double temperature,
+    required int maxTokens,
   }) : _dio = dio,
        _model = model,
-       _apiKey = apiKey;
+       _apiKey = apiKey,
+       _temperature = temperature,
+       _maxTokens = maxTokens;
 
   final Dio _dio;
   final String _model;
   final String _apiKey;
+  final double _temperature;
+  final int _maxTokens;
 
   @override
   Future<String> completeChat({
@@ -40,7 +46,10 @@ class GeminiClient implements LlmProviderClient {
             ],
           },
         ],
-        'generationConfig': {'temperature': 0.4},
+        'generationConfig': {
+          'temperature': _temperature,
+          'maxOutputTokens': _maxTokens,
+        },
       },
     );
 

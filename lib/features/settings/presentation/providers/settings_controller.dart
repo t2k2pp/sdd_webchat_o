@@ -66,4 +66,39 @@ class SettingsController extends AsyncNotifier<AppSettings> {
       ),
     );
   }
+
+  Future<void> updateSearxngBaseUrl(String baseUrl) async {
+    final current = state.value ?? const AppSettings();
+    await saveSettings(current.copyWith(searxngBaseUrl: baseUrl));
+  }
+
+  Future<void> updateSearchPolicy({
+    required int maxIterations,
+    required double confidenceThreshold,
+    required String timeRange,
+    required int safeSearch,
+  }) async {
+    final current = state.value ?? const AppSettings();
+    await saveSettings(
+      current.copyWith(
+        maxSearchIterations: maxIterations,
+        confidenceThreshold: confidenceThreshold,
+        searchTimeRange: timeRange,
+        searchSafeSearch: safeSearch,
+      ),
+    );
+  }
+
+  Future<void> updateSystemPrompt(String prompt) async {
+    final current = state.value ?? const AppSettings();
+    await saveSettings(current.copyWith(systemPrompt: prompt));
+  }
+
+  Future<void> updateEndpoint(ModelEndpoint endpoint) async {
+    final current = state.value ?? const AppSettings();
+    final nextEndpoints = current.modelEndpoints.map((e) {
+      return e.id == endpoint.id ? endpoint : e;
+    }).toList();
+    await saveSettings(current.copyWith(modelEndpoints: nextEndpoints));
+  }
 }

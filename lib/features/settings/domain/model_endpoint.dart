@@ -32,6 +32,8 @@ class ModelEndpoint {
     required this.provider,
     required this.baseUrl,
     required this.model,
+    this.temperature = 0.4,
+    this.maxTokens = 2048,
     this.apiKey = '',
     this.apiVersion = '2024-06-01',
   });
@@ -41,6 +43,8 @@ class ModelEndpoint {
   final LlmProviderType provider;
   final String baseUrl;
   final String model;
+  final double temperature;
+  final int maxTokens;
   final String apiKey;
   final String apiVersion;
 
@@ -50,6 +54,8 @@ class ModelEndpoint {
     LlmProviderType? provider,
     String? baseUrl,
     String? model,
+    double? temperature,
+    int? maxTokens,
     String? apiKey,
     String? apiVersion,
   }) {
@@ -59,6 +65,8 @@ class ModelEndpoint {
       provider: provider ?? this.provider,
       baseUrl: baseUrl ?? this.baseUrl,
       model: model ?? this.model,
+      temperature: temperature ?? this.temperature,
+      maxTokens: maxTokens ?? this.maxTokens,
       apiKey: apiKey ?? this.apiKey,
       apiVersion: apiVersion ?? this.apiVersion,
     );

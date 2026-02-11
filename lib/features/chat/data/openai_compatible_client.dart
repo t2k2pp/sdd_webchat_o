@@ -7,12 +7,16 @@ class OpenAiCompatibleClient implements LlmProviderClient {
   OpenAiCompatibleClient({
     required Dio dio,
     required String model,
+    required this.temperature,
+    required this.maxTokens,
     this.apiKey = '',
   }) : _dio = dio,
        _model = model;
 
   final Dio _dio;
   final String _model;
+  final double temperature;
+  final int maxTokens;
   final String apiKey;
 
   @override
@@ -25,7 +29,8 @@ class OpenAiCompatibleClient implements LlmProviderClient {
       data: {
         'model': _model,
         'messages': messages.map((e) => e.toOllamaJson()).toList(),
-        'temperature': 0.4,
+        'temperature': temperature,
+        'max_tokens': maxTokens,
       },
       options: Options(
         headers: {

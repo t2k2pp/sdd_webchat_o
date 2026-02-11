@@ -9,15 +9,21 @@ class AzureOpenAiClient implements LlmProviderClient {
     required String deployment,
     required String apiKey,
     required String apiVersion,
+    required double temperature,
+    required int maxTokens,
   }) : _dio = dio,
        _deployment = deployment,
        _apiKey = apiKey,
-       _apiVersion = apiVersion;
+       _apiVersion = apiVersion,
+       _temperature = temperature,
+       _maxTokens = maxTokens;
 
   final Dio _dio;
   final String _deployment;
   final String _apiKey;
   final String _apiVersion;
+  final double _temperature;
+  final int _maxTokens;
 
   @override
   Future<String> completeChat({
@@ -34,7 +40,8 @@ class AzureOpenAiClient implements LlmProviderClient {
       options: Options(headers: {'api-key': _apiKey}),
       data: {
         'messages': messages.map((e) => e.toOllamaJson()).toList(),
-        'temperature': 0.4,
+        'temperature': _temperature,
+        'max_tokens': _maxTokens,
       },
     );
 

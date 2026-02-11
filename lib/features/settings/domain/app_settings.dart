@@ -5,7 +5,10 @@ class AppSettings {
     this.searxngEnabledByDefault = false,
     this.maxSearchIterations = 3,
     this.confidenceThreshold = 0.75,
+    this.searchTimeRange = 'month',
+    this.searchSafeSearch = 1,
     this.searxngBaseUrl = 'http://192.168.1.40:8080',
+    this.systemPrompt = '',
     this.selectedEndpointId = 'ollama-local',
     this.modelEndpoints = const [
       ModelEndpoint(
@@ -35,7 +38,10 @@ class AppSettings {
   final bool searxngEnabledByDefault;
   final int maxSearchIterations;
   final double confidenceThreshold;
+  final String searchTimeRange;
+  final int searchSafeSearch;
   final String searxngBaseUrl;
+  final String systemPrompt;
   final String selectedEndpointId;
   final List<ModelEndpoint> modelEndpoints;
 
@@ -52,7 +58,10 @@ class AppSettings {
     bool? searxngEnabledByDefault,
     int? maxSearchIterations,
     double? confidenceThreshold,
+    String? searchTimeRange,
+    int? searchSafeSearch,
     String? searxngBaseUrl,
+    String? systemPrompt,
     String? selectedEndpointId,
     List<ModelEndpoint>? modelEndpoints,
   }) {
@@ -61,7 +70,10 @@ class AppSettings {
           searxngEnabledByDefault ?? this.searxngEnabledByDefault,
       maxSearchIterations: maxSearchIterations ?? this.maxSearchIterations,
       confidenceThreshold: confidenceThreshold ?? this.confidenceThreshold,
+      searchTimeRange: searchTimeRange ?? this.searchTimeRange,
+      searchSafeSearch: searchSafeSearch ?? this.searchSafeSearch,
       searxngBaseUrl: searxngBaseUrl ?? this.searxngBaseUrl,
+      systemPrompt: systemPrompt ?? this.systemPrompt,
       selectedEndpointId: selectedEndpointId ?? this.selectedEndpointId,
       modelEndpoints: modelEndpoints ?? this.modelEndpoints,
     );

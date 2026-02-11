@@ -70,8 +70,13 @@ class ChatController extends Notifier<ChatState> {
         throw StateError('No model endpoint configured');
       }
       final client = _resolveClient(endpoint);
+      final promptMessages = <ChatMessage>[
+        if (settings.systemPrompt.trim().isNotEmpty)
+          ChatMessage(role: 'system', content: settings.systemPrompt.trim()),
+        ...nextMessages,
+      ];
       final content = await client.completeChat(
-        messages: nextMessages,
+        messages: promptMessages,
         enableSearch: state.searxngEnabled,
       );
 
@@ -107,27 +112,40 @@ class ChatController extends Notifier<ChatState> {
     );
 
     return switch (endpoint.provider) {
-      LlmProviderType.ollama => OllamaClient(dio: dio, model: endpoint.model),
+      LlmProviderType.ollama => OllamaClient(
+        dio: dio,
+        model: endpoint.model,
+        temperature: endpoint.temperature,
+        maxTokens: endpoint.maxTokens,
+      ),
       LlmProviderType.lmStudio => OpenAiCompatibleClient(
         dio: dio,
         model: endpoint.model,
+        temperature: endpoint.temperature,
+        maxTokens: endpoint.maxTokens,
         apiKey: endpoint.apiKey,
       ),
       LlmProviderType.llamaCpp => OpenAiCompatibleClient(
         dio: dio,
         model: endpoint.model,
+        temperature: endpoint.temperature,
+        maxTokens: endpoint.maxTokens,
         apiKey: endpoint.apiKey,
       ),
       LlmProviderType.gemini => GeminiClient(
         dio: dio,
         model: endpoint.model,
         apiKey: endpoint.apiKey,
+        temperature: endpoint.temperature,
+        maxTokens: endpoint.maxTokens,
       ),
       LlmProviderType.azureOpenAi => AzureOpenAiClient(
         dio: dio,
         deployment: endpoint.model,
         apiKey: endpoint.apiKey,
         apiVersion: endpoint.apiVersion,
+        temperature: endpoint.temperature,
+        maxTokens: endpoint.maxTokens,
       ),
     };
   }

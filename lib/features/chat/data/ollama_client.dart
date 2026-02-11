@@ -4,12 +4,20 @@ import '../domain/chat_message.dart';
 import '../domain/llm_provider_client.dart';
 
 class OllamaClient implements LlmProviderClient {
-  OllamaClient({required Dio dio, required String model})
-    : _dio = dio,
-      _model = model;
+  OllamaClient({
+    required Dio dio,
+    required String model,
+    required double temperature,
+    required int maxTokens,
+  }) : _dio = dio,
+       _model = model,
+       _temperature = temperature,
+       _maxTokens = maxTokens;
 
   final Dio _dio;
   final String _model;
+  final double _temperature;
+  final int _maxTokens;
 
   @override
   Future<String> completeChat({
@@ -22,8 +30,7 @@ class OllamaClient implements LlmProviderClient {
         'model': _model,
         'stream': false,
         'messages': messages.map((e) => e.toOllamaJson()).toList(),
-        // ツール連携は次フェーズ。ここではON/OFF状態のみプロンプトへ注入。
-        'options': {'temperature': 0.4},
+        'options': {'temperature': _temperature, 'num_predict': _maxTokens},
       },
     );
 
