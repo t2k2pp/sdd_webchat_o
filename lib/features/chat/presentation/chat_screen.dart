@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/widgets/app_drawer.dart';
 import 'providers/chat_controller.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -24,21 +25,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final chatState = ref.watch(chatControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chat'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              label: const Text('SearXNG'),
-              selected: chatState.searxngEnabled,
-              onSelected: (value) {
-                ref.read(chatControllerProvider.notifier).toggleSearxng(value);
-              },
-            ),
-          ),
-        ],
-      ),
+      drawer: const AppDrawer(currentPath: '/chat'),
+      appBar: AppBar(title: const Text('Chat')),
       body: Column(
         children: [
           Expanded(
@@ -73,43 +61,106 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      minLines: 1,
-                      maxLines: 4,
-                      decoration: const InputDecoration(
-                        hintText: 'メッセージを入力',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: chatState.isSending
-                        ? null
-                        : () async {
-                            final text = _controller.text;
-                            _controller.clear();
-                            await ref
-                                .read(chatControllerProvider.notifier)
-                                .sendMessage(text);
-                          },
-                    child: chatState.isSending
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('送信'),
-                  ),
-                ],
+              child: _Composer(
+                controller: _controller,
+                isSending: chatState.isSending,
+                searxngEnabled: chatState.searxngEnabled,
+                onToggleSearxng: (enabled) {
+                  ref
+                      .read(chatControllerProvider.notifier)
+                      .toggleSearxng(enabled);
+                },
+                onSend: () async {
+                  final text = _controller.text;
+                  _controller.clear();
+                  await ref
+                      .read(chatControllerProvider.notifier)
+                      .sendMessage(text);
+                },
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _Composer extends StatelessWidget {
+  const _Composer({
+    required this.controller,
+    required this.isSending,
+    required this.searxngEnabled,
+    required this.onToggleSearxng,
+    required this.onSend,
+  });
+
+  final TextEditingController controller;
+  final bool isSending;
+  final bool searxngEnabled;
+  final ValueChanged<bool> onToggleSearxng;
+  final VoidCallback onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = Theme.of(context).colorScheme.outlineVariant;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: borderColor),
+        borderRadius: BorderRadius.circular(16),
+        color: Theme.of(context).colorScheme.surface,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 10, 8, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              minLines: 1,
+              maxLines: 7,
+              keyboardType: TextInputType.multiline,
+              textInputAction: TextInputAction.newline,
+              decoration: const InputDecoration(
+                hintText: 'メッセージを入力',
+                isDense: true,
+                border: InputBorder.none,
+              ),
+            ),
+            Row(
+              children: [
+                IconButton.filledTonal(
+                  onPressed: () => onToggleSearxng(!searxngEnabled),
+                  icon: Icon(
+                    Icons.travel_explore,
+                    color: searxngEnabled
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                  tooltip: 'SearXNG ON/OFF',
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  searxngEnabled ? 'SearXNG ON' : 'SearXNG OFF',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: isSending ? null : onSend,
+                  tooltip: '送信',
+                  icon: isSending
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send_rounded),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/widgets/app_drawer.dart';
+
 class HistoryScreen extends StatelessWidget {
   const HistoryScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(currentPath: '/history'),
       appBar: AppBar(title: const Text('History')),
       body: const Center(child: Text('Phase 0: 会話履歴画面の骨格')),
     );

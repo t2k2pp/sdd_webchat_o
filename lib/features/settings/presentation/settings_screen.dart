@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/widgets/app_drawer.dart';
 import '../domain/app_settings.dart';
 import 'providers/settings_controller.dart';
 
@@ -13,6 +14,7 @@ class SettingsScreen extends ConsumerWidget {
     final settingsAsync = ref.watch(settingsControllerProvider);
 
     return Scaffold(
+      drawer: const AppDrawer(currentPath: '/settings'),
       appBar: AppBar(title: const Text('Settings')),
       body: settingsAsync.when(
         data: (settings) => ListView(
