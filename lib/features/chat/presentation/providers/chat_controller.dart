@@ -5,10 +5,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/logging/app_logger.dart';
+import '../../../integrations/presentation/providers/integration_providers.dart';
+import '../../../projects/presentation/providers/project_providers.dart';
 import '../../../settings/domain/app_settings.dart';
 import '../../../settings/domain/model_endpoint.dart';
 import '../../../settings/presentation/providers/settings_controller.dart';
-import '../../../projects/presentation/providers/project_providers.dart';
 import '../../data/agentic_search_orchestrator.dart';
 import '../../data/azure_openai_client.dart';
 import '../../data/gemini_client.dart';
@@ -101,11 +102,14 @@ class ChatController extends Notifier<ChatState> {
       }
       final client = _resolveClient(endpoint);
       final projectContext = await _buildProjectContext();
+      final integrationContext = await _buildIntegrationContext();
       final promptMessages = <ChatMessage>[
         if (settings.systemPrompt.trim().isNotEmpty)
           ChatMessage(role: 'system', content: settings.systemPrompt.trim()),
         if (projectContext.trim().isNotEmpty)
           ChatMessage(role: 'system', content: projectContext),
+        if (integrationContext.trim().isNotEmpty)
+          ChatMessage(role: 'system', content: integrationContext),
         ...nextMessages,
       ];
       final completion = state.searxngEnabled
@@ -294,6 +298,48 @@ class ChatController extends Notifier<ChatState> {
         }
       }
       return lines.join('\n\n');
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<String> _buildIntegrationContext() async {
+    try {
+      final repo = ref.read(integrationRepositoryProvider);
+      final skills = await repo.listSkills();
+      final subAgents = await repo.listSubAgents();
+      final activeSubAgentId = await repo.getActiveSubAgentId();
+      final mcpServers = await repo.listMcpServers();
+
+      final lines = <String>[];
+      final enabledSkills = skills.where((s) => s.enabled).toList();
+      if (enabledSkills.isNotEmpty) {
+        lines.add('Enabled Skills:');
+      }
+      for (final skill in enabledSkills.take(3)) {
+        final summary = skill.content.replaceAll(RegExp(r'\s+'), ' ').trim();
+        final excerpt = summary.length > 280
+            ? '${summary.substring(0, 280)}...'
+            : summary;
+        lines.add('- ${skill.name}: $excerpt');
+      }
+
+      for (final sub in subAgents) {
+        if (sub.id == activeSubAgentId && sub.enabled) {
+          lines.add('Active SubAgent: ${sub.name}');
+          lines.add('SubAgent Instruction: ${sub.instruction}');
+          break;
+        }
+      }
+
+      final enabledMcp = mcpServers.where((m) => m.enabled).toList();
+      if (enabledMcp.isNotEmpty) {
+        lines.add('Enabled MCP Servers:');
+      }
+      for (final mcp in enabledMcp.take(5)) {
+        lines.add('- ${mcp.name}: ${mcp.command} ${mcp.args.join(' ')}');
+      }
+      return lines.join('\n');
     } catch (_) {
       return '';
     }

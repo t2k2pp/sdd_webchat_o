@@ -54,10 +54,14 @@
 - HTML Artifact表示
   - LLM応答からHTMLを抽出
   - ChatメッセージからArtifactを全画面表示
+- Integrations機能
+  - Skillsレジストリ（追加/有効化/削除）
+  - Sub Agentsレジストリ（追加/選択/削除）
+  - MCPサーバーレジストリ（追加/有効化/削除）
+  - チャット時に有効設定をsystem文脈へ注入
 
 ### 未実装（計画残）
 - 会話履歴のDB移行（現状ファイルベース）
-- Skills/SubAgents/MCP統合本体
 - トークン/コストの日次・月次レポート
 
 ## 3. 現在のアーキテクチャ
@@ -118,7 +122,7 @@
 ## 5. 次フェーズ優先度
 
 1. 設定の永続化（secure storage + DB）
-2. Skills/SubAgents/MCP
-3. 履歴/設定のDB正規化
-4. プロジェクト添付の高度化（検索インデックス/埋め込み）
-5. Artifactの安全ポリシー強化（sandbox/CSP）
+2. 履歴/設定のDB正規化
+3. プロジェクト添付の高度化（検索インデックス/埋め込み）
+4. Artifactの安全ポリシー強化（sandbox/CSP）
+5. Integrations実行連携（MCP実行ハンドラ/Skill実行器）
