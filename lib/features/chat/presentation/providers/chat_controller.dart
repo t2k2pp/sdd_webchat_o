@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,30 +7,41 @@ import '../../../../core/logging/app_logger.dart';
 import '../../../settings/domain/app_settings.dart';
 import '../../../settings/domain/model_endpoint.dart';
 import '../../../settings/presentation/providers/settings_controller.dart';
+import '../../data/agentic_search_orchestrator.dart';
 import '../../data/azure_openai_client.dart';
 import '../../data/gemini_client.dart';
 import '../../data/ollama_client.dart';
 import '../../data/openai_compatible_client.dart';
 import '../../domain/chat_message.dart';
+import '../../domain/conversation_thread.dart';
 import '../../domain/llm_provider_client.dart';
+import 'conversation_providers.dart';
 
 class ChatState {
   const ChatState({
+    required this.conversationId,
+    this.title = 'New Conversation',
     this.messages = const [],
     this.isSending = false,
     this.searxngEnabled = false,
   });
 
+  final String conversationId;
+  final String title;
   final List<ChatMessage> messages;
   final bool isSending;
   final bool searxngEnabled;
 
   ChatState copyWith({
+    String? conversationId,
+    String? title,
     List<ChatMessage>? messages,
     bool? isSending,
     bool? searxngEnabled,
   }) {
     return ChatState(
+      conversationId: conversationId ?? this.conversationId,
+      title: title ?? this.title,
       messages: messages ?? this.messages,
       isSending: isSending ?? this.isSending,
       searxngEnabled: searxngEnabled ?? this.searxngEnabled,
@@ -41,12 +54,22 @@ final chatControllerProvider = NotifierProvider<ChatController, ChatState>(
 );
 
 class ChatController extends Notifier<ChatState> {
+  bool _bootstrapped = false;
+
   @override
   ChatState build() {
     final settings = ref.watch(settingsControllerProvider).value;
-    return ChatState(
+    final initial = ChatState(
+      conversationId: _newConversationId(),
       searxngEnabled: settings?.searxngEnabledByDefault ?? false,
     );
+    if (!_bootstrapped) {
+      _bootstrapped = true;
+      Future<void>(() async {
+        await _restoreLatestConversation();
+      });
+    }
+    return initial;
   }
 
   void toggleSearxng(bool enabled) {
@@ -60,7 +83,12 @@ class ChatController extends Notifier<ChatState> {
 
     final userMessage = ChatMessage(role: 'user', content: userInput.trim());
     final nextMessages = [...state.messages, userMessage];
-    state = state.copyWith(messages: nextMessages, isSending: true);
+    final title = state.messages.isEmpty ? _titleFrom(userInput) : state.title;
+    state = state.copyWith(
+      messages: nextMessages,
+      isSending: true,
+      title: title,
+    );
 
     try {
       final settings =
@@ -75,10 +103,18 @@ class ChatController extends Notifier<ChatState> {
           ChatMessage(role: 'system', content: settings.systemPrompt.trim()),
         ...nextMessages,
       ];
-      final completion = await client.completeChat(
-        messages: promptMessages,
-        enableSearch: state.searxngEnabled,
-      );
+      final completion = state.searxngEnabled
+          ? await AgenticSearchOrchestrator(
+              searxngBaseUrl: settings.searxngBaseUrl,
+            ).answerWithSearch(
+              messages: promptMessages,
+              llmClient: client,
+              settings: settings,
+            )
+          : await client.completeChat(
+              messages: promptMessages,
+              enableSearch: false,
+            );
       final inputTokens = completion.inputTokens > 0
           ? completion.inputTokens
           : _estimateTokens(promptMessages.map((e) => e.content).join('\n'));
@@ -100,6 +136,7 @@ class ChatController extends Notifier<ChatState> {
         ],
         isSending: false,
       );
+      await _persistCurrentConversation();
     } catch (error, stackTrace) {
       AppLogger.error('Chat send failed', error, stackTrace);
       state = state.copyWith(
@@ -112,7 +149,24 @@ class ChatController extends Notifier<ChatState> {
         ],
         isSending: false,
       );
+      await _persistCurrentConversation();
     }
+  }
+
+  Future<void> loadConversation(ConversationThread thread) async {
+    state = state.copyWith(
+      conversationId: thread.id,
+      title: thread.title,
+      messages: thread.messages,
+    );
+  }
+
+  Future<void> startNewConversation() async {
+    state = state.copyWith(
+      conversationId: _newConversationId(),
+      title: 'New Conversation',
+      messages: const [],
+    );
   }
 
   LlmProviderClient _resolveClient(ModelEndpoint endpoint) {
@@ -167,5 +221,45 @@ class ChatController extends Notifier<ChatState> {
     final chars = text.runes.length;
     final estimated = (chars / 4).ceil();
     return estimated < 1 ? 1 : estimated;
+  }
+
+  Future<void> _restoreLatestConversation() async {
+    try {
+      final repository = ref.read(conversationRepositoryProvider);
+      final list = await repository.list();
+      if (list.isNotEmpty) {
+        await loadConversation(list.first);
+      }
+    } catch (error, stackTrace) {
+      AppLogger.error('Restore latest conversation failed', error, stackTrace);
+    }
+  }
+
+  Future<void> _persistCurrentConversation() async {
+    try {
+      final repository = ref.read(conversationRepositoryProvider);
+      final thread = ConversationThread(
+        id: state.conversationId,
+        title: state.title,
+        updatedAt: DateTime.now(),
+        messages: state.messages,
+      );
+      await repository.upsert(thread);
+      ref.invalidate(conversationListProvider);
+    } catch (error, stackTrace) {
+      AppLogger.error('Persist conversation failed', error, stackTrace);
+    }
+  }
+
+  String _newConversationId() {
+    return 'conv_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(99999)}';
+  }
+
+  String _titleFrom(String text) {
+    final clean = text.trim().replaceAll('\n', ' ');
+    if (clean.isEmpty) {
+      return 'Conversation';
+    }
+    return clean.length <= 32 ? clean : '${clean.substring(0, 32)}...';
   }
 }

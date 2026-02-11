@@ -41,6 +41,7 @@ dependencies:
   path: ^1.9.1
   flutter_secure_storage: ^10.0.0-beta.4
   collection: ^1.19.1
+  share_plus: ^11.0.0
 
 dev_dependencies:
   flutter_test:

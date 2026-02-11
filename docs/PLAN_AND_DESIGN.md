@@ -41,11 +41,13 @@
   - 比較用コスト
   - 節約額
 - トークン集計リセット機能
+- Agentic Search反復実行（SearXNG検索 + 確信値判定 + 次クエリ反復）
+- 会話履歴のローカル永続化（ファイルベース）
+- 履歴のコピー / エクスポート(Markdown) / 共有
+- 履歴から会話を再ロードしてチャット再開
 
 ### 未実装（計画残）
-- Agentic Web Search本体（検索反復オーケストレータ）
-- 会話履歴の永続化（DB運用）
-- チャットエクスポート/共有
+- 会話履歴のDB移行（現状ファイルベース）
 - HTML Artifact表示
 - Project機能（添付ファイル・追加プロンプト）
 - Skills/SubAgents/MCP統合本体
@@ -108,9 +110,8 @@
 
 ## 5. 次フェーズ優先度
 
-1. Agentic Search本体実装（反復停止条件込み）
-2. 設定の永続化（secure storage + DB）
-3. 履歴/エクスポート/共有
-4. Project機能
-5. Skills/SubAgents/MCP
-
+1. 設定の永続化（secure storage + DB）
+2. HTML Artifact表示
+3. Project機能
+4. Skills/SubAgents/MCP
+5. 履歴/設定のDB正規化

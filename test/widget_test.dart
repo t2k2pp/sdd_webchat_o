@@ -7,7 +7,7 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: SddWebchatApp()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Chat'), findsOneWidget);
+    expect(find.text('New Conversation'), findsOneWidget);
     expect(find.text('メッセージを送信すると会話が始まります。'), findsOneWidget);
   });
 }

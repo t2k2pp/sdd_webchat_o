@@ -30,7 +30,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return Scaffold(
       drawer: const AppDrawer(currentPath: '/chat'),
-      appBar: AppBar(title: const Text('Chat')),
+      appBar: AppBar(
+        title: Text(chatState.title),
+        actions: [
+          IconButton(
+            onPressed: () {
+              ref.read(chatControllerProvider.notifier).startNewConversation();
+            },
+            icon: const Icon(Icons.add_comment_outlined),
+            tooltip: '新規会話',
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(
