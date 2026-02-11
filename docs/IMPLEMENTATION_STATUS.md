@@ -16,6 +16,7 @@
 - HTML Artifact表示を実装済み（チャット内ボタンから全画面表示）
 - Integrations機能（Skills/SubAgents/MCPレジストリ）を実装済み
 - 有効なSkills/SubAgent/MCP情報をチャット実行時に注入済み
+- Skillsは `.skill` / `.zip` アーカイブを取り込み可能
 
 ## 仕様差分サマリ（初期計画 대비）
 

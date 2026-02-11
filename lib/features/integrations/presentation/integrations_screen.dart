@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -64,6 +68,25 @@ class _SkillsPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Skills'),
         actions: [
+          IconButton(
+            onPressed: () async {
+              final imported = await _pickSkillArchive(context);
+              if (imported == null) {
+                return;
+              }
+              await ref
+                  .read(integrationRepositoryProvider)
+                  .upsertSkill(imported);
+              ref.invalidate(skillsProvider);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('インポート完了: ${imported.name}')),
+                );
+              }
+            },
+            icon: const Icon(Icons.file_open_outlined),
+            tooltip: '.skill/.zip をインポート',
+          ),
           IconButton(
             onPressed: () async {
               final skill = await _showSkillDialog(context);
@@ -323,6 +346,102 @@ Future<SkillDefinition?> _showSkillDialog(BuildContext context) async {
   urlController.dispose();
   contentController.dispose();
   return result;
+}
+
+Future<SkillDefinition?> _pickSkillArchive(BuildContext context) async {
+  final result = await FilePicker.platform.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: const ['skill', 'zip'],
+    withData: true,
+  );
+  if (result == null || result.files.isEmpty) {
+    return null;
+  }
+  final picked = result.files.first;
+  final fileName = picked.name;
+  final bytes =
+      picked.bytes ??
+      (picked.path != null ? await File(picked.path!).readAsBytes() : null);
+  if (bytes == null) {
+    return null;
+  }
+  return _parseSkillArchive(bytes, fileName);
+}
+
+SkillDefinition? _parseSkillArchive(Uint8List bytes, String fileName) {
+  final archive = ZipDecoder().decodeBytes(bytes, verify: false);
+
+  ArchiveFile? skillFile;
+  for (final f in archive.files) {
+    if (f.isFile && f.name.toLowerCase().endsWith('skill.md')) {
+      skillFile = f;
+      break;
+    }
+  }
+  if (skillFile == null) {
+    for (final f in archive.files) {
+      if (f.isFile &&
+          (f.name.toLowerCase().endsWith('.md') ||
+              f.name.toLowerCase().endsWith('.txt'))) {
+        skillFile = f;
+        break;
+      }
+    }
+  }
+
+  if (skillFile == null || !skillFile.isFile) {
+    return null;
+  }
+
+  final content = _toString(skillFile.content);
+  if (content.trim().isEmpty) {
+    return null;
+  }
+
+  final parsedName = _extractFrontMatterName(content);
+  final fallback = fileName.replaceAll(
+    RegExp(r'\.(skill|zip)$', caseSensitive: false),
+    '',
+  );
+
+  return SkillDefinition(
+    id: 'sk_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(9999)}',
+    name: parsedName.isEmpty ? fallback : parsedName,
+    content: content,
+    sourceUrl: fileName,
+    enabled: true,
+  );
+}
+
+String _toString(Object content) {
+  if (content is String) {
+    return content;
+  }
+  if (content is List<int>) {
+    return String.fromCharCodes(content);
+  }
+  if (content is Uint8List) {
+    return String.fromCharCodes(content);
+  }
+  return content.toString();
+}
+
+String _extractFrontMatterName(String content) {
+  final lines = content.split('\n');
+  if (lines.isEmpty || lines.first.trim() != '---') {
+    return '';
+  }
+  for (var i = 1; i < lines.length; i++) {
+    final line = lines[i].trim();
+    if (line == '---') {
+      break;
+    }
+    if (line.toLowerCase().startsWith('name:')) {
+      final raw = line.substring(5).trim();
+      return raw.replaceAll('"', '').replaceAll("'", '');
+    }
+  }
+  return '';
 }
 
 Future<SubAgentDefinition?> _showSubAgentDialog(BuildContext context) async {
