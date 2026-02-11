@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 
 import 'package:dio/dio.dart';
@@ -7,6 +8,7 @@ import '../../../../core/logging/app_logger.dart';
 import '../../../settings/domain/app_settings.dart';
 import '../../../settings/domain/model_endpoint.dart';
 import '../../../settings/presentation/providers/settings_controller.dart';
+import '../../../projects/presentation/providers/project_providers.dart';
 import '../../data/agentic_search_orchestrator.dart';
 import '../../data/azure_openai_client.dart';
 import '../../data/gemini_client.dart';
@@ -98,9 +100,12 @@ class ChatController extends Notifier<ChatState> {
         throw StateError('No model endpoint configured');
       }
       final client = _resolveClient(endpoint);
+      final projectContext = await _buildProjectContext();
       final promptMessages = <ChatMessage>[
         if (settings.systemPrompt.trim().isNotEmpty)
           ChatMessage(role: 'system', content: settings.systemPrompt.trim()),
+        if (projectContext.trim().isNotEmpty)
+          ChatMessage(role: 'system', content: projectContext),
         ...nextMessages,
       ];
       final completion = state.searxngEnabled
@@ -221,6 +226,50 @@ class ChatController extends Notifier<ChatState> {
     final chars = text.runes.length;
     final estimated = (chars / 4).ceil();
     return estimated < 1 ? 1 : estimated;
+  }
+
+  Future<String> _buildProjectContext() async {
+    try {
+      final repository = ref.read(projectRepositoryProvider);
+      final activeId = await repository.getActiveProjectId();
+      if (activeId == null || activeId.isEmpty) {
+        return '';
+      }
+      final project = await repository.getById(activeId);
+      if (project == null) {
+        return '';
+      }
+
+      final lines = <String>[];
+      lines.add('Project: ${project.name}');
+      if (project.additionalSystemPrompt.trim().isNotEmpty) {
+        lines.add('Project Prompt:\n${project.additionalSystemPrompt.trim()}');
+      }
+      if (project.attachments.isNotEmpty) {
+        lines.add('Project Attachments:');
+      }
+
+      for (final attachment in project.attachments.take(5)) {
+        try {
+          final file = File(attachment.path);
+          if (!await file.exists()) {
+            lines.add('- ${attachment.name}: (file missing)');
+            continue;
+          }
+          final text = await file.readAsString();
+          final normalized = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+          final excerpt = normalized.length > 500
+              ? '${normalized.substring(0, 500)}...'
+              : normalized;
+          lines.add('- ${attachment.name}: $excerpt');
+        } catch (_) {
+          lines.add('- ${attachment.name}: (unreadable)');
+        }
+      }
+      return lines.join('\n\n');
+    } catch (_) {
+      return '';
+    }
   }
 
   Future<void> _restoreLatestConversation() async {

@@ -1,16 +1,267 @@
+import 'dart:math';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/app_drawer.dart';
+import '../domain/project.dart';
+import '../domain/project_attachment.dart';
+import 'providers/project_providers.dart';
 
-class ProjectsScreen extends StatelessWidget {
+class ProjectsScreen extends ConsumerWidget {
   const ProjectsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final projectsAsync = ref.watch(projectListProvider);
+    final activeIdAsync = ref.watch(activeProjectIdProvider);
+
+    return Scaffold(
+      drawer: const AppDrawer(currentPath: '/projects'),
+      appBar: AppBar(
+        title: const Text('Projects'),
+        actions: [
+          IconButton(
+            onPressed: () async {
+              final created = await Navigator.of(context).push<Project>(
+                MaterialPageRoute(builder: (_) => const _ProjectEditPage()),
+              );
+              if (created != null) {
+                await ref.read(projectRepositoryProvider).upsert(created);
+                await ref
+                    .read(projectRepositoryProvider)
+                    .setActiveProjectId(created.id);
+                ref.invalidate(projectListProvider);
+                ref.invalidate(activeProjectIdProvider);
+              }
+            },
+            icon: const Icon(Icons.add),
+            tooltip: '新規プロジェクト',
+          ),
+        ],
+      ),
+      body: projectsAsync.when(
+        data: (projects) {
+          return activeIdAsync.when(
+            data: (activeId) {
+              if (projects.isEmpty) {
+                return const Center(child: Text('プロジェクトはまだありません。'));
+              }
+              return ListView.builder(
+                itemCount: projects.length,
+                itemBuilder: (context, index) {
+                  final project = projects[index];
+                  final selected = project.id == activeId;
+                  return ListTile(
+                    leading: Icon(
+                      selected
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                    ),
+                    title: Text(project.name),
+                    subtitle: Text(
+                      '添付: ${project.attachments.length}件\n'
+                      '${project.additionalSystemPrompt.isEmpty ? '(追加プロンプトなし)' : project.additionalSystemPrompt}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    isThreeLine: true,
+                    onTap: () async {
+                      await ref
+                          .read(projectRepositoryProvider)
+                          .setActiveProjectId(project.id);
+                      ref.invalidate(activeProjectIdProvider);
+                    },
+                    trailing: Wrap(
+                      spacing: 0,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () async {
+                            final edited = await Navigator.of(context)
+                                .push<Project>(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        _ProjectEditPage(initial: project),
+                                  ),
+                                );
+                            if (edited != null) {
+                              await ref
+                                  .read(projectRepositoryProvider)
+                                  .upsert(edited);
+                              ref.invalidate(projectListProvider);
+                            }
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () async {
+                            await ref
+                                .read(projectRepositoryProvider)
+                                .delete(project.id);
+                            ref.invalidate(projectListProvider);
+                            ref.invalidate(activeProjectIdProvider);
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => Center(child: Text('読み込み失敗: $error')),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(child: Text('読み込み失敗: $error')),
+      ),
+    );
+  }
+}
+
+class _ProjectEditPage extends StatefulWidget {
+  const _ProjectEditPage({this.initial});
+
+  final Project? initial;
+
+  @override
+  State<_ProjectEditPage> createState() => _ProjectEditPageState();
+}
+
+class _ProjectEditPageState extends State<_ProjectEditPage> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _promptController;
+  late List<ProjectAttachment> _attachments;
+
+  bool get _isEdit => widget.initial != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initial?.name ?? '');
+    _promptController = TextEditingController(
+      text: widget.initial?.additionalSystemPrompt ?? '',
+    );
+    _attachments = [...(widget.initial?.attachments ?? const [])];
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _promptController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickAttachment() async {
+    final result = await FilePicker.platform.pickFiles();
+    if (result == null || result.files.isEmpty) {
+      return;
+    }
+    final file = result.files.first;
+    if (file.path == null || file.path!.isEmpty) {
+      return;
+    }
+    setState(() {
+      _attachments = [
+        ..._attachments,
+        ProjectAttachment(
+          id: 'att_${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(9999)}',
+          path: file.path!,
+          name: file.name,
+        ),
+      ];
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const AppDrawer(currentPath: '/projects'),
-      appBar: AppBar(title: const Text('Projects')),
-      body: const Center(child: Text('Phase 0: プロジェクト管理画面の骨格')),
+      appBar: AppBar(
+        title: Text(_isEdit ? 'プロジェクト編集' : '新規プロジェクト'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              final project = Project(
+                id:
+                    widget.initial?.id ??
+                    'prj_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(99999)}',
+                name: _nameController.text.trim().isEmpty
+                    ? 'Project'
+                    : _nameController.text.trim(),
+                additionalSystemPrompt: _promptController.text,
+                attachments: _attachments,
+                updatedAt: DateTime.now(),
+              );
+              Navigator.of(context).pop(project);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(
+              labelText: 'Project Name',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _promptController,
+            minLines: 6,
+            maxLines: 14,
+            decoration: const InputDecoration(
+              labelText: 'Additional System Prompt',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Text(
+                'Attachments',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const Spacer(),
+              OutlinedButton.icon(
+                onPressed: _pickAttachment,
+                icon: const Icon(Icons.attach_file),
+                label: const Text('追加'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_attachments.isEmpty)
+            const Text('添付ファイルはありません。')
+          else
+            ..._attachments.map(
+              (a) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(a.name),
+                subtitle: Text(
+                  a.path,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () {
+                    setState(() {
+                      _attachments = _attachments
+                          .where((e) => e.id != a.id)
+                          .toList();
+                    });
+                  },
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
