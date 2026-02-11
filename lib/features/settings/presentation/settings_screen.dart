@@ -20,163 +20,59 @@ class SettingsScreen extends ConsumerWidget {
       body: settingsAsync.when(
         data: (settings) => ListView(
           children: [
-            const _SectionHeader('Search'),
-            SwitchListTile(
-              title: const Text('SearXNG default ON'),
-              subtitle: const Text('チャット開始時の既定値'),
-              value: settings.searxngEnabledByDefault,
-              onChanged: (value) {
-                ref
-                    .read(settingsControllerProvider.notifier)
-                    .toggleDefaultSearxng(value);
-              },
-            ),
+            const _SectionHeader('Sections'),
             ListTile(
-              title: const Text('SearXNG Base URL'),
-              subtitle: Text(settings.searxngBaseUrl),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () async {
-                final value = await _pushTextEditPage(
-                  context,
-                  title: 'SearXNG Base URL',
-                  label: 'Base URL',
-                  initialValue: settings.searxngBaseUrl,
-                );
-                if (value != null && value.trim().isNotEmpty) {
-                  await ref
-                      .read(settingsControllerProvider.notifier)
-                      .updateSearxngBaseUrl(value.trim());
-                }
-              },
-            ),
-            ListTile(
-              title: const Text('Agentic Search Policy'),
+              leading: const Icon(Icons.travel_explore_outlined),
+              title: const Text('Search'),
               subtitle: Text(
-                'max=${settings.maxSearchIterations}, confidence=${settings.confidenceThreshold.toStringAsFixed(2)}, '
-                'time=${settings.searchTimeRange}, safesearch=${settings.searchSafeSearch}',
+                'SearXNG URL / max=${settings.maxSearchIterations} / '
+                'confidence=${settings.confidenceThreshold.toStringAsFixed(2)}',
               ),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () async {
-                final result = await _pushSearchPolicyPage(context, settings);
-                if (result != null) {
-                  await ref
-                      .read(settingsControllerProvider.notifier)
-                      .updateSearchPolicy(
-                        maxIterations: result.maxIterations,
-                        confidenceThreshold: result.confidenceThreshold,
-                        timeRange: result.timeRange,
-                        safeSearch: result.safeSearch,
-                      );
-                }
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const _SearchSettingsPage(),
+                  ),
+                );
               },
             ),
-            const _SectionHeader('System Prompt'),
             ListTile(
-              title: const Text('Global System Prompt'),
+              leading: const Icon(Icons.note_alt_outlined),
+              title: const Text('System Prompt'),
               subtitle: Text(
                 settings.systemPrompt.trim().isEmpty
                     ? '(未設定)'
                     : settings.systemPrompt,
-                maxLines: 4,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () async {
-                final value = await _pushTextEditPage(
-                  context,
-                  title: 'Global System Prompt',
-                  label: 'System Prompt',
-                  initialValue: settings.systemPrompt,
-                  minLines: 8,
-                  maxLines: 18,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const _SystemPromptSettingsPage(),
+                  ),
                 );
-                if (value != null) {
-                  await ref
-                      .read(settingsControllerProvider.notifier)
-                      .updateSystemPrompt(value);
-                }
               },
             ),
-            const _SectionHeader('Model Endpoints'),
             ListTile(
-              title: const Text('モデル接続先一覧'),
-              subtitle: const Text('複数登録して1つを選択して利用'),
-              trailing: IconButton(
-                onPressed: () async {
-                  final endpoint = await _pushEndpointPage(context);
-                  if (endpoint != null) {
-                    await ref
-                        .read(settingsControllerProvider.notifier)
-                        .addEndpoint(endpoint);
-                  }
-                },
-                icon: const Icon(Icons.add_circle_outline),
-                tooltip: '追加',
+              leading: const Icon(Icons.hub_outlined),
+              title: const Text('Model Endpoints'),
+              subtitle: Text(
+                '登録数: ${settings.modelEndpoints.length} / '
+                '選択: ${settings.selectedEndpoint?.name ?? '-'}',
               ),
-            ),
-            ...settings.modelEndpoints.map((endpoint) {
-              final selected = endpoint.id == settings.selectedEndpointId;
-              return ListTile(
-                title: Text(endpoint.name),
-                subtitle: Text(
-                  '${endpoint.provider.label} | ${endpoint.model}\n'
-                  'temp=${endpoint.temperature}, maxTokens=${endpoint.maxTokens}\n'
-                  '${endpoint.baseUrl}',
-                ),
-                isThreeLine: true,
-                leading: IconButton(
-                  onPressed: () {
-                    ref
-                        .read(settingsControllerProvider.notifier)
-                        .selectEndpoint(endpoint.id);
-                  },
-                  icon: Icon(
-                    selected
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_unchecked,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const _ModelEndpointsPage(),
                   ),
-                ),
-                trailing: Wrap(
-                  spacing: 0,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined),
-                      tooltip: '編集',
-                      onPressed: () async {
-                        final edited = await _pushEndpointPage(
-                          context,
-                          initial: endpoint,
-                        );
-                        if (edited != null) {
-                          await ref
-                              .read(settingsControllerProvider.notifier)
-                              .updateEndpoint(edited.copyWith(id: endpoint.id));
-                        }
-                      },
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        selected ? Icons.check_circle : Icons.delete_outline,
-                        color: selected ? Colors.teal : null,
-                      ),
-                      tooltip: selected ? '選択中' : '削除',
-                      onPressed: selected || settings.modelEndpoints.length <= 1
-                          ? null
-                          : () {
-                              ref
-                                  .read(settingsControllerProvider.notifier)
-                                  .removeEndpoint(endpoint.id);
-                            },
-                    ),
-                  ],
-                ),
-                onTap: () {
-                  ref
-                      .read(settingsControllerProvider.notifier)
-                      .selectEndpoint(endpoint.id);
-                },
-              );
-            }),
+                );
+              },
+            ),
+            const Divider(height: 20),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: FilledButton(
@@ -192,6 +88,220 @@ class SettingsScreen extends ConsumerWidget {
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text('設定読み込み失敗: $error')),
+      ),
+    );
+  }
+}
+
+class _SearchSettingsPage extends ConsumerWidget {
+  const _SearchSettingsPage();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsControllerProvider).value;
+    if (settings == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Search Settings')),
+      body: ListView(
+        children: [
+          SwitchListTile(
+            title: const Text('SearXNG default ON'),
+            subtitle: const Text('チャット開始時の既定値'),
+            value: settings.searxngEnabledByDefault,
+            onChanged: (value) {
+              ref
+                  .read(settingsControllerProvider.notifier)
+                  .toggleDefaultSearxng(value);
+            },
+          ),
+          ListTile(
+            title: const Text('SearXNG Base URL'),
+            subtitle: Text(settings.searxngBaseUrl),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final value = await _pushTextEditPage(
+                context,
+                title: 'SearXNG Base URL',
+                label: 'Base URL',
+                initialValue: settings.searxngBaseUrl,
+              );
+              if (value != null && value.trim().isNotEmpty) {
+                await ref
+                    .read(settingsControllerProvider.notifier)
+                    .updateSearxngBaseUrl(value.trim());
+              }
+            },
+          ),
+          ListTile(
+            title: const Text('Agentic Search Policy'),
+            subtitle: Text(
+              'max=${settings.maxSearchIterations}, confidence=${settings.confidenceThreshold.toStringAsFixed(2)}, '
+              'time=${settings.searchTimeRange}, safesearch=${settings.searchSafeSearch}',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final result = await _pushSearchPolicyPage(context, settings);
+              if (result != null) {
+                await ref
+                    .read(settingsControllerProvider.notifier)
+                    .updateSearchPolicy(
+                      maxIterations: result.maxIterations,
+                      confidenceThreshold: result.confidenceThreshold,
+                      timeRange: result.timeRange,
+                      safeSearch: result.safeSearch,
+                    );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SystemPromptSettingsPage extends ConsumerWidget {
+  const _SystemPromptSettingsPage();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsControllerProvider).value;
+    if (settings == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('System Prompt')),
+      body: ListView(
+        children: [
+          ListTile(
+            title: const Text('Global System Prompt'),
+            subtitle: Text(
+              settings.systemPrompt.trim().isEmpty
+                  ? '(未設定)'
+                  : settings.systemPrompt,
+              maxLines: 8,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final value = await _pushTextEditPage(
+                context,
+                title: 'Global System Prompt',
+                label: 'System Prompt',
+                initialValue: settings.systemPrompt,
+                minLines: 10,
+                maxLines: 20,
+              );
+              if (value != null) {
+                await ref
+                    .read(settingsControllerProvider.notifier)
+                    .updateSystemPrompt(value);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModelEndpointsPage extends ConsumerWidget {
+  const _ModelEndpointsPage();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsControllerProvider).value;
+    if (settings == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Model Endpoints'),
+        actions: [
+          IconButton(
+            onPressed: () async {
+              final endpoint = await _pushEndpointPage(context);
+              if (endpoint != null) {
+                await ref
+                    .read(settingsControllerProvider.notifier)
+                    .addEndpoint(endpoint);
+              }
+            },
+            icon: const Icon(Icons.add_circle_outline),
+            tooltip: '追加',
+          ),
+        ],
+      ),
+      body: ListView(
+        children: [
+          ...settings.modelEndpoints.map((endpoint) {
+            final selected = endpoint.id == settings.selectedEndpointId;
+            return ListTile(
+              title: Text(endpoint.name),
+              subtitle: Text(
+                '${endpoint.provider.label} | ${endpoint.model}\n'
+                'temp=${endpoint.temperature}, maxTokens=${endpoint.maxTokens}\n'
+                '${endpoint.baseUrl}',
+              ),
+              isThreeLine: true,
+              leading: IconButton(
+                onPressed: () {
+                  ref
+                      .read(settingsControllerProvider.notifier)
+                      .selectEndpoint(endpoint.id);
+                },
+                icon: Icon(
+                  selected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                ),
+              ),
+              trailing: Wrap(
+                spacing: 0,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: '編集',
+                    onPressed: () async {
+                      final edited = await _pushEndpointPage(
+                        context,
+                        initial: endpoint,
+                      );
+                      if (edited != null) {
+                        await ref
+                            .read(settingsControllerProvider.notifier)
+                            .updateEndpoint(edited.copyWith(id: endpoint.id));
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      selected ? Icons.check_circle : Icons.delete_outline,
+                      color: selected ? Colors.teal : null,
+                    ),
+                    tooltip: selected ? '選択中' : '削除',
+                    onPressed: selected || settings.modelEndpoints.length <= 1
+                        ? null
+                        : () {
+                            ref
+                                .read(settingsControllerProvider.notifier)
+                                .removeEndpoint(endpoint.id);
+                          },
+                  ),
+                ],
+              ),
+              onTap: () {
+                ref
+                    .read(settingsControllerProvider.notifier)
+                    .selectEndpoint(endpoint.id);
+              },
+            );
+          }),
+        ],
       ),
     );
   }
