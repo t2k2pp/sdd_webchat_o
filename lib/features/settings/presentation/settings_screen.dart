@@ -245,9 +245,13 @@ class _ModelEndpointsPage extends ConsumerWidget {
               subtitle: Text(
                 '${endpoint.provider.label} | ${endpoint.model}\n'
                 'temp=${endpoint.temperature}, maxTokens=${endpoint.maxTokens}\n'
+                'usage in=${endpoint.inputTokensTotal}, out=${endpoint.outputTokensTotal}\n'
+                'actual≈${endpoint.currency} ${endpoint.actualCostEstimate.toStringAsFixed(4)} | '
+                'ref≈${endpoint.currency} ${endpoint.referenceCostEstimate.toStringAsFixed(4)} | '
+                'saved≈${endpoint.currency} ${endpoint.savedCostEstimate.toStringAsFixed(4)}\n'
                 '${endpoint.baseUrl}',
               ),
-              isThreeLine: true,
+              isThreeLine: false,
               leading: IconButton(
                 onPressed: () {
                   ref
@@ -561,16 +565,16 @@ Future<ModelEndpoint?> _pushEndpointPage(
   );
 }
 
-class _EndpointEditPage extends StatefulWidget {
+class _EndpointEditPage extends ConsumerStatefulWidget {
   const _EndpointEditPage({this.initial});
 
   final ModelEndpoint? initial;
 
   @override
-  State<_EndpointEditPage> createState() => _EndpointEditPageState();
+  ConsumerState<_EndpointEditPage> createState() => _EndpointEditPageState();
 }
 
-class _EndpointEditPageState extends State<_EndpointEditPage> {
+class _EndpointEditPageState extends ConsumerState<_EndpointEditPage> {
   late final bool _isEdit;
   late LlmProviderType _provider;
   late final TextEditingController _nameController;
@@ -580,6 +584,11 @@ class _EndpointEditPageState extends State<_EndpointEditPage> {
   late final TextEditingController _apiVersionController;
   late final TextEditingController _temperatureController;
   late final TextEditingController _maxTokensController;
+  late final TextEditingController _actualInputCostController;
+  late final TextEditingController _actualOutputCostController;
+  late final TextEditingController _referenceInputCostController;
+  late final TextEditingController _referenceOutputCostController;
+  late final TextEditingController _currencyController;
 
   @override
   void initState() {
@@ -605,6 +614,21 @@ class _EndpointEditPageState extends State<_EndpointEditPage> {
     _maxTokensController = TextEditingController(
       text: (widget.initial?.maxTokens ?? 2048).toString(),
     );
+    _actualInputCostController = TextEditingController(
+      text: (widget.initial?.actualInputCostPerMillion ?? 0).toString(),
+    );
+    _actualOutputCostController = TextEditingController(
+      text: (widget.initial?.actualOutputCostPerMillion ?? 0).toString(),
+    );
+    _referenceInputCostController = TextEditingController(
+      text: (widget.initial?.referenceInputCostPerMillion ?? 0).toString(),
+    );
+    _referenceOutputCostController = TextEditingController(
+      text: (widget.initial?.referenceOutputCostPerMillion ?? 0).toString(),
+    );
+    _currencyController = TextEditingController(
+      text: widget.initial?.currency ?? 'USD',
+    );
   }
 
   @override
@@ -616,6 +640,11 @@ class _EndpointEditPageState extends State<_EndpointEditPage> {
     _apiVersionController.dispose();
     _temperatureController.dispose();
     _maxTokensController.dispose();
+    _actualInputCostController.dispose();
+    _actualOutputCostController.dispose();
+    _referenceInputCostController.dispose();
+    _referenceOutputCostController.dispose();
+    _currencyController.dispose();
     super.dispose();
   }
 
@@ -668,6 +697,25 @@ class _EndpointEditPageState extends State<_EndpointEditPage> {
                     double.tryParse(_temperatureController.text.trim()) ?? 0.4,
                 maxTokens:
                     int.tryParse(_maxTokensController.text.trim()) ?? 2048,
+                actualInputCostPerMillion:
+                    double.tryParse(_actualInputCostController.text.trim()) ??
+                    0,
+                actualOutputCostPerMillion:
+                    double.tryParse(_actualOutputCostController.text.trim()) ??
+                    0,
+                referenceInputCostPerMillion:
+                    double.tryParse(
+                      _referenceInputCostController.text.trim(),
+                    ) ??
+                    0,
+                referenceOutputCostPerMillion:
+                    double.tryParse(
+                      _referenceOutputCostController.text.trim(),
+                    ) ??
+                    0,
+                currency: _currencyController.text.trim().isEmpty
+                    ? 'USD'
+                    : _currencyController.text.trim(),
                 apiKey: _apiKeyController.text.trim(),
                 apiVersion: _apiVersionController.text.trim().isEmpty
                     ? '2024-06-01'
@@ -748,6 +796,89 @@ class _EndpointEditPageState extends State<_EndpointEditPage> {
               border: OutlineInputBorder(),
             ),
           ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _currencyController,
+            decoration: const InputDecoration(
+              labelText: 'Currency (e.g. USD, JPY)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _actualInputCostController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Actual Input Cost / 1M tokens',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _actualOutputCostController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Actual Output Cost / 1M tokens',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _referenceInputCostController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Reference Input Cost / 1M tokens',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _referenceOutputCostController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Reference Output Cost / 1M tokens',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          if (widget.initial != null) ...[
+            const SizedBox(height: 20),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Usage & Cost Summary',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Input tokens: ${widget.initial!.inputTokensTotal}\n'
+                      'Output tokens: ${widget.initial!.outputTokensTotal}\n'
+                      'Actual: ${widget.initial!.currency} ${widget.initial!.actualCostEstimate.toStringAsFixed(4)}\n'
+                      'Reference: ${widget.initial!.currency} ${widget.initial!.referenceCostEstimate.toStringAsFixed(4)}\n'
+                      'Saved: ${widget.initial!.currency} ${widget.initial!.savedCostEstimate.toStringAsFixed(4)}',
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        await ref
+                            .read(settingsControllerProvider.notifier)
+                            .resetUsage(widget.initial!.id);
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(this.context).showSnackBar(
+                          const SnackBar(content: Text('トークン集計をリセットしました')),
+                        );
+                      },
+                      icon: const Icon(Icons.restart_alt),
+                      label: const Text('トークン集計をリセット'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           if (needsApiKey) ...[
             const SizedBox(height: 12),
             TextField(

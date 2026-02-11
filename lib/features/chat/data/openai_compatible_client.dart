@@ -20,7 +20,7 @@ class OpenAiCompatibleClient implements LlmProviderClient {
   final String apiKey;
 
   @override
-  Future<String> completeChat({
+  Future<ChatCompletionResult> completeChat({
     required List<ChatMessage> messages,
     required bool enableSearch,
   }) async {
@@ -52,7 +52,15 @@ class OpenAiCompatibleClient implements LlmProviderClient {
         if (message is Map<String, dynamic>) {
           final content = message['content'];
           if (content is String && content.trim().isNotEmpty) {
-            return content;
+            final usage = data['usage'] as Map<String, dynamic>?;
+            final inputTokens = (usage?['prompt_tokens'] as num?)?.toInt() ?? 0;
+            final outputTokens =
+                (usage?['completion_tokens'] as num?)?.toInt() ?? 0;
+            return ChatCompletionResult(
+              content: content,
+              inputTokens: inputTokens,
+              outputTokens: outputTokens,
+            );
           }
         }
       }

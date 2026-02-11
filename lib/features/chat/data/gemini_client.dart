@@ -23,7 +23,7 @@ class GeminiClient implements LlmProviderClient {
   final int _maxTokens;
 
   @override
-  Future<String> completeChat({
+  Future<ChatCompletionResult> completeChat({
     required List<ChatMessage> messages,
     required bool enableSearch,
   }) async {
@@ -70,7 +70,16 @@ class GeminiClient implements LlmProviderClient {
             if (firstPart is Map<String, dynamic>) {
               final text = firstPart['text'];
               if (text is String && text.trim().isNotEmpty) {
-                return text;
+                final usage = data['usageMetadata'] as Map<String, dynamic>?;
+                final inputTokens =
+                    (usage?['promptTokenCount'] as num?)?.toInt() ?? 0;
+                final outputTokens =
+                    (usage?['candidatesTokenCount'] as num?)?.toInt() ?? 0;
+                return ChatCompletionResult(
+                  content: text,
+                  inputTokens: inputTokens,
+                  outputTokens: outputTokens,
+                );
               }
             }
           }

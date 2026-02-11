@@ -101,4 +101,33 @@ class SettingsController extends AsyncNotifier<AppSettings> {
     }).toList();
     await saveSettings(current.copyWith(modelEndpoints: nextEndpoints));
   }
+
+  Future<void> recordUsage({
+    required String endpointId,
+    required int inputTokens,
+    required int outputTokens,
+  }) async {
+    final current = state.value ?? const AppSettings();
+    final nextEndpoints = current.modelEndpoints.map((e) {
+      if (e.id != endpointId) {
+        return e;
+      }
+      return e.copyWith(
+        inputTokensTotal: e.inputTokensTotal + inputTokens,
+        outputTokensTotal: e.outputTokensTotal + outputTokens,
+      );
+    }).toList();
+    await saveSettings(current.copyWith(modelEndpoints: nextEndpoints));
+  }
+
+  Future<void> resetUsage(String endpointId) async {
+    final current = state.value ?? const AppSettings();
+    final nextEndpoints = current.modelEndpoints.map((e) {
+      if (e.id != endpointId) {
+        return e;
+      }
+      return e.copyWith(inputTokensTotal: 0, outputTokensTotal: 0);
+    }).toList();
+    await saveSettings(current.copyWith(modelEndpoints: nextEndpoints));
+  }
 }

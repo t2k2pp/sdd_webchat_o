@@ -75,15 +75,28 @@ class ChatController extends Notifier<ChatState> {
           ChatMessage(role: 'system', content: settings.systemPrompt.trim()),
         ...nextMessages,
       ];
-      final content = await client.completeChat(
+      final completion = await client.completeChat(
         messages: promptMessages,
         enableSearch: state.searxngEnabled,
       );
+      final inputTokens = completion.inputTokens > 0
+          ? completion.inputTokens
+          : _estimateTokens(promptMessages.map((e) => e.content).join('\n'));
+      final outputTokens = completion.outputTokens > 0
+          ? completion.outputTokens
+          : _estimateTokens(completion.content);
+      await ref
+          .read(settingsControllerProvider.notifier)
+          .recordUsage(
+            endpointId: endpoint.id,
+            inputTokens: inputTokens,
+            outputTokens: outputTokens,
+          );
 
       state = state.copyWith(
         messages: [
           ...nextMessages,
-          ChatMessage(role: 'assistant', content: content),
+          ChatMessage(role: 'assistant', content: completion.content),
         ],
         isSending: false,
       );
@@ -148,5 +161,11 @@ class ChatController extends Notifier<ChatState> {
         maxTokens: endpoint.maxTokens,
       ),
     };
+  }
+
+  int _estimateTokens(String text) {
+    final chars = text.runes.length;
+    final estimated = (chars / 4).ceil();
+    return estimated < 1 ? 1 : estimated;
   }
 }

@@ -20,7 +20,7 @@ class OllamaClient implements LlmProviderClient {
   final int _maxTokens;
 
   @override
-  Future<String> completeChat({
+  Future<ChatCompletionResult> completeChat({
     required List<ChatMessage> messages,
     required bool enableSearch,
   }) async {
@@ -43,7 +43,13 @@ class OllamaClient implements LlmProviderClient {
     if (message is Map<String, dynamic>) {
       final content = message['content'];
       if (content is String && content.trim().isNotEmpty) {
-        return content;
+        final inputTokens = (data['prompt_eval_count'] as num?)?.toInt() ?? 0;
+        final outputTokens = (data['eval_count'] as num?)?.toInt() ?? 0;
+        return ChatCompletionResult(
+          content: content,
+          inputTokens: inputTokens,
+          outputTokens: outputTokens,
+        );
       }
     }
 
