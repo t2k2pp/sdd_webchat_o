@@ -41,6 +41,9 @@
   - 比較用コスト
   - 節約額
 - トークン集計リセット機能
+- 設定の永続化
+  - `app_settings.json` への保存
+  - API KeyのSecure Storage保存（平文ファイルに非保持）
 - Agentic Search反復実行（SearXNG検索 + 確信値判定 + 次クエリ反復）
 - 会話履歴のローカル永続化（ファイルベース）
 - 履歴のコピー / エクスポート(Markdown) / 共有
@@ -83,7 +86,7 @@
   - `OpenAiCompatibleClient`
   - `GeminiClient`
   - `AzureOpenAiClient`
-  - `InMemorySettingsRepository`（暫定）
+  - `FileSettingsRepository`（設定JSON + Secure Storage）
 
 ## 4. 設定仕様（現行）
 
@@ -121,8 +124,8 @@
 
 ## 5. 次フェーズ優先度
 
-1. 設定の永続化（secure storage + DB）
-2. 履歴/設定のDB正規化
+1. 履歴/設定のDB正規化
+2. トークン/コストの日次・月次レポート
 3. プロジェクト添付の高度化（検索インデックス/埋め込み）
 4. Artifactの安全ポリシー強化（sandbox/CSP）
 5. Integrations実行連携（MCP実行ハンドラ/Skill実行器）

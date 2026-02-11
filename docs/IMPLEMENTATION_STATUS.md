@@ -17,6 +17,8 @@
 - Integrations機能（Skills/SubAgents/MCPレジストリ）を実装済み
 - 有効なSkills/SubAgent/MCP情報をチャット実行時に注入済み
 - Skillsは `.skill` / `.zip` アーカイブを取り込み可能
+- 設定をローカル永続化済み（JSONファイル）
+- モデルAPIキーをSecure Storageに保存済み（設定ファイルには非保持）
 
 ## 仕様差分サマリ（初期計画 대비）
 
@@ -32,7 +34,7 @@
 
 ## 運用上の注意
 
-- APIキーは現状、設定入力値として保持している（次段階で secure storage へ移行予定）
+- APIキーはSecure Storageに保存し、設定ファイルには保存しない
 - コスト計算は入力単価/出力単価（1M tokens基準）の概算
 - トークン数がAPIレスポンスに含まれない場合は推定値で補完
 - Agentic SearchはSearXNG `format=json` が失敗する場合、HTML抽出フォールバックを使用

@@ -78,4 +78,44 @@ class AppSettings {
       modelEndpoints: modelEndpoints ?? this.modelEndpoints,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'searxngEnabledByDefault': searxngEnabledByDefault,
+      'maxSearchIterations': maxSearchIterations,
+      'confidenceThreshold': confidenceThreshold,
+      'searchTimeRange': searchTimeRange,
+      'searchSafeSearch': searchSafeSearch,
+      'searxngBaseUrl': searxngBaseUrl,
+      'systemPrompt': systemPrompt,
+      'selectedEndpointId': selectedEndpointId,
+      'modelEndpoints': modelEndpoints.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  static AppSettings fromJson(Map<String, dynamic> json) {
+    final rawEndpoints = json['modelEndpoints'] as List<dynamic>? ?? const [];
+    final endpoints = rawEndpoints
+        .map((e) => ModelEndpoint.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    return AppSettings(
+      searxngEnabledByDefault:
+          json['searxngEnabledByDefault'] as bool? ?? false,
+      maxSearchIterations: (json['maxSearchIterations'] as num?)?.toInt() ?? 3,
+      confidenceThreshold:
+          (json['confidenceThreshold'] as num?)?.toDouble() ?? 0.75,
+      searchTimeRange: json['searchTimeRange'] as String? ?? 'month',
+      searchSafeSearch: (json['searchSafeSearch'] as num?)?.toInt() ?? 1,
+      searxngBaseUrl:
+          json['searxngBaseUrl'] as String? ?? 'http://192.168.1.40:8080',
+      systemPrompt: json['systemPrompt'] as String? ?? '',
+      selectedEndpointId:
+          json['selectedEndpointId'] as String? ??
+          (endpoints.isNotEmpty ? endpoints.first.id : 'ollama-local'),
+      modelEndpoints: endpoints.isEmpty
+          ? const AppSettings().modelEndpoints
+          : endpoints,
+    );
+  }
 }

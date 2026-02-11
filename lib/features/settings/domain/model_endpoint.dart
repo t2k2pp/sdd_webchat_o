@@ -115,4 +115,52 @@ class ModelEndpoint {
       apiVersion: apiVersion ?? this.apiVersion,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'provider': provider.id,
+      'baseUrl': baseUrl,
+      'model': model,
+      'temperature': temperature,
+      'maxTokens': maxTokens,
+      'inputTokensTotal': inputTokensTotal,
+      'outputTokensTotal': outputTokensTotal,
+      'actualInputCostPerMillion': actualInputCostPerMillion,
+      'actualOutputCostPerMillion': actualOutputCostPerMillion,
+      'referenceInputCostPerMillion': referenceInputCostPerMillion,
+      'referenceOutputCostPerMillion': referenceOutputCostPerMillion,
+      'currency': currency,
+      'apiKey': apiKey,
+      'apiVersion': apiVersion,
+    };
+  }
+
+  static ModelEndpoint fromJson(Map<String, dynamic> json) {
+    return ModelEndpoint(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? 'Endpoint',
+      provider: LlmProviderTypeX.fromId(
+        json['provider'] as String? ?? 'ollama',
+      ),
+      baseUrl: json['baseUrl'] as String? ?? '',
+      model: json['model'] as String? ?? '',
+      temperature: (json['temperature'] as num?)?.toDouble() ?? 0.4,
+      maxTokens: (json['maxTokens'] as num?)?.toInt() ?? 2048,
+      inputTokensTotal: (json['inputTokensTotal'] as num?)?.toInt() ?? 0,
+      outputTokensTotal: (json['outputTokensTotal'] as num?)?.toInt() ?? 0,
+      actualInputCostPerMillion:
+          (json['actualInputCostPerMillion'] as num?)?.toDouble() ?? 0,
+      actualOutputCostPerMillion:
+          (json['actualOutputCostPerMillion'] as num?)?.toDouble() ?? 0,
+      referenceInputCostPerMillion:
+          (json['referenceInputCostPerMillion'] as num?)?.toDouble() ?? 0,
+      referenceOutputCostPerMillion:
+          (json['referenceOutputCostPerMillion'] as num?)?.toDouble() ?? 0,
+      currency: json['currency'] as String? ?? 'USD',
+      apiKey: json['apiKey'] as String? ?? '',
+      apiVersion: json['apiVersion'] as String? ?? '2024-06-01',
+    );
+  }
 }

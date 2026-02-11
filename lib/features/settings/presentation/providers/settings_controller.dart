@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/in_memory_settings_repository.dart';
+import '../../data/file_settings_repository.dart';
 import '../../domain/app_settings.dart';
 import '../../domain/model_endpoint.dart';
 import '../../domain/settings_repository.dart';
 
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
-  return InMemorySettingsRepository();
+  return FileSettingsRepository();
 });
 
 final settingsControllerProvider =
