@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/logging/app_logger.dart';
+import '../../../integrations/domain/mcp_server_definition.dart';
 import '../../../integrations/presentation/providers/integration_providers.dart';
 import '../../../projects/presentation/providers/project_providers.dart';
 import '../../../settings/domain/app_settings.dart';
@@ -13,6 +14,7 @@ import '../../../settings/presentation/providers/settings_controller.dart';
 import '../../data/agentic_search_orchestrator.dart';
 import '../../data/azure_openai_client.dart';
 import '../../data/gemini_client.dart';
+import '../../data/mcp_execution.dart';
 import '../../data/ollama_client.dart';
 import '../../data/openai_compatible_client.dart';
 import '../../domain/chat_message.dart';
@@ -58,6 +60,7 @@ final chatControllerProvider = NotifierProvider<ChatController, ChatState>(
 
 class ChatController extends Notifier<ChatState> {
   bool _bootstrapped = false;
+  static const int _maxMcpToolCalls = 2;
 
   @override
   ChatState build() {
@@ -103,6 +106,7 @@ class ChatController extends Notifier<ChatState> {
       final client = _resolveClient(endpoint);
       final projectContext = await _buildProjectContext();
       final integrationContext = await _buildIntegrationContext();
+      final enabledMcpServers = await _listEnabledMcpServers();
       final promptMessages = <ChatMessage>[
         if (settings.systemPrompt.trim().isNotEmpty)
           ChatMessage(role: 'system', content: settings.systemPrompt.trim()),
@@ -124,12 +128,18 @@ class ChatController extends Notifier<ChatState> {
               messages: promptMessages,
               enableSearch: false,
             );
-      final inputTokens = completion.inputTokens > 0
-          ? completion.inputTokens
+      final finalResult = await _resolveMcpToolCalls(
+        initial: completion,
+        client: client,
+        promptMessages: promptMessages,
+        enabledServers: enabledMcpServers,
+      );
+      final inputTokens = finalResult.inputTokens > 0
+          ? finalResult.inputTokens
           : _estimateTokens(promptMessages.map((e) => e.content).join('\n'));
-      final outputTokens = completion.outputTokens > 0
-          ? completion.outputTokens
-          : _estimateTokens(completion.content);
+      final outputTokens = finalResult.outputTokens > 0
+          ? finalResult.outputTokens
+          : _estimateTokens(finalResult.content);
       await ref
           .read(settingsControllerProvider.notifier)
           .recordUsage(
@@ -137,7 +147,7 @@ class ChatController extends Notifier<ChatState> {
             inputTokens: inputTokens,
             outputTokens: outputTokens,
           );
-      final artifact = _extractArtifact(completion.content);
+      final artifact = _extractArtifact(finalResult.content);
 
       state = state.copyWith(
         messages: [
@@ -334,15 +344,94 @@ class ChatController extends Notifier<ChatState> {
 
       final enabledMcp = mcpServers.where((m) => m.enabled).toList();
       if (enabledMcp.isNotEmpty) {
-        lines.add('Enabled MCP Servers:');
+        lines.add('Enabled MCP Servers (HTTP bridge only):');
       }
       for (final mcp in enabledMcp.take(5)) {
         lines.add('- ${mcp.name}: ${mcp.command} ${mcp.args.join(' ')}');
+      }
+      if (enabledMcp.isNotEmpty) {
+        lines.add('When tool use is required, output only this JSON block:');
+        lines.add(
+          '```mcp\n{"server":"<server-name>","tool":"<tool-name>","arguments":{"key":"value"}}\n```',
+        );
+        lines.add(
+          'After tool result is provided in system message, produce final user answer.',
+        );
       }
       return lines.join('\n');
     } catch (_) {
       return '';
     }
+  }
+
+  Future<List<McpServerDefinition>> _listEnabledMcpServers() async {
+    try {
+      final repo = ref.read(integrationRepositoryProvider);
+      final all = await repo.listMcpServers();
+      return all.where((e) => e.enabled).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<ChatCompletionResult> _resolveMcpToolCalls({
+    required ChatCompletionResult initial,
+    required LlmProviderClient client,
+    required List<ChatMessage> promptMessages,
+    required List<McpServerDefinition> enabledServers,
+  }) async {
+    if (enabledServers.isEmpty) {
+      return initial;
+    }
+
+    final parser = const McpRequestParser();
+    final executor = McpHttpExecutor();
+    var completion = initial;
+    var totalInputTokens = initial.inputTokens;
+    var totalOutputTokens = initial.outputTokens;
+    final followupMessages = <ChatMessage>[...promptMessages];
+
+    for (var i = 0; i < _maxMcpToolCalls; i++) {
+      final request = parser.parse(completion.content);
+      if (request == null) {
+        break;
+      }
+
+      final result = await executor.execute(
+        request: request,
+        servers: enabledServers,
+      );
+
+      followupMessages.add(
+        ChatMessage(role: 'assistant', content: completion.content),
+      );
+      followupMessages.add(
+        ChatMessage(
+          role: 'system',
+          content:
+              'MCP Tool Result\n'
+              'server: ${result.server}\n'
+              'tool: ${result.tool}\n'
+              'success: ${result.success}\n'
+              'output:\n${result.output}\n\n'
+              'Please answer the user request based on this result. '
+              'Do not output MCP JSON unless another tool call is required.',
+        ),
+      );
+
+      completion = await client.completeChat(
+        messages: followupMessages,
+        enableSearch: false,
+      );
+      totalInputTokens += completion.inputTokens;
+      totalOutputTokens += completion.outputTokens;
+    }
+
+    return ChatCompletionResult(
+      content: completion.content,
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+    );
   }
 
   Future<void> _restoreLatestConversation() async {

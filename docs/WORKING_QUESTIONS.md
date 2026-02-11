@@ -31,6 +31,10 @@
 - JSON移行後バックアップファイルを自動削除するか
 - 履歴DBの暗号化を必須化するか
 
+7. MCPブリッジ仕様の確定
+- `POST /tools/call` 以外に `tools/list` などの標準エンドポイント互換をどこまで持つか
+- 認証方式（Bearer固定 / APIキー / mTLS）の標準化
+
 ## Default Assumptions (現在の実装前提)
 
 - Flutter stable最新で進める
@@ -53,3 +57,4 @@
 - [ ] SearXNG既定値の確定
 - [ ] HTML Artifact セキュリティ方針の確定
 - [ ] 履歴DBバックアップ/暗号化方針の確定
+- [ ] MCPブリッジAPI/認証方針の確定

@@ -17,6 +17,7 @@
 - HTML Artifact表示を実装済み（チャット内ボタンから全画面表示）
 - Integrations機能（Skills/SubAgents/MCPレジストリ）を実装済み
 - 有効なSkills/SubAgent/MCP情報をチャット実行時に注入済み
+- MCP実行連携を実装済み（LLMのMCP JSON要求を検出し、HTTPブリッジへツール実行）
 - Skillsは `.skill` / `.zip` アーカイブを取り込み可能
 - 設定をローカル永続化済み（JSONファイル）
 - モデルAPIキーをSecure Storageに保存済み（設定ファイルには非保持）
@@ -29,8 +30,8 @@
 - モデルごとの運用メトリクス（token/cost/saving）を追加
 
 ### まだ残っている点
-- MCP実行連携（現状はレジストリ管理と文脈注入まで）
 - Project添付の高度検索（RAG化）
+- Skill実行器（定義された手順の自動実行）
 
 ## 運用上の注意
 
@@ -40,3 +41,4 @@
 - Agentic SearchはSearXNG `format=json` が失敗する場合、HTML抽出フォールバックを使用
 - Artifactは `webview_flutter` でレンダリング（今後CSP/制限強化予定）
 - 旧 `conversations.json` はSQLite移行時にバックアップ名へリネームされる
+- MCPは現状 HTTP/HTTPS ブリッジ方式のみ実行（`command` にURLを設定）
