@@ -133,11 +133,16 @@ class ChatController extends Notifier<ChatState> {
             inputTokens: inputTokens,
             outputTokens: outputTokens,
           );
+      final artifact = _extractArtifact(completion.content);
 
       state = state.copyWith(
         messages: [
           ...nextMessages,
-          ChatMessage(role: 'assistant', content: completion.content),
+          ChatMessage(
+            role: 'assistant',
+            content: artifact.displayText,
+            artifactHtml: artifact.html,
+          ),
         ],
         isSending: false,
       );
@@ -228,6 +233,28 @@ class ChatController extends Notifier<ChatState> {
     return estimated < 1 ? 1 : estimated;
   }
 
+  _ArtifactExtraction _extractArtifact(String raw) {
+    final fenced = RegExp(r'```html\s*([\s\S]*?)```', caseSensitive: false);
+    final match = fenced.firstMatch(raw);
+    if (match != null) {
+      final html = (match.group(1) ?? '').trim();
+      final plain = raw.replaceFirst(fenced, '').trim();
+      return _ArtifactExtraction(
+        displayText: plain.isEmpty ? '(artifact generated)' : plain,
+        html: html.isEmpty ? null : html,
+      );
+    }
+
+    final lowered = raw.toLowerCase();
+    if (lowered.contains('<html') || lowered.contains('<!doctype html')) {
+      return _ArtifactExtraction(
+        displayText: '(artifact generated)',
+        html: raw,
+      );
+    }
+    return _ArtifactExtraction(displayText: raw, html: null);
+  }
+
   Future<String> _buildProjectContext() async {
     try {
       final repository = ref.read(projectRepositoryProvider);
@@ -311,4 +338,11 @@ class ChatController extends Notifier<ChatState> {
     }
     return clean.length <= 32 ? clean : '${clean.substring(0, 32)}...';
   }
+}
+
+class _ArtifactExtraction {
+  const _ArtifactExtraction({required this.displayText, required this.html});
+
+  final String displayText;
+  final String? html;
 }

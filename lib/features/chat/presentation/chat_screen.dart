@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/widgets/app_drawer.dart';
 import '../../settings/domain/model_endpoint.dart';
 import '../../settings/presentation/providers/settings_controller.dart';
+import 'artifact_screen.dart';
 import 'providers/chat_controller.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -65,7 +66,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 ).colorScheme.surfaceContainerHighest,
                           child: Padding(
                             padding: const EdgeInsets.all(12),
-                            child: Text(msg.content),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(msg.content),
+                                if (!isUser && msg.artifactHtml != null) ...[
+                                  const SizedBox(height: 8),
+                                  FilledButton.tonalIcon(
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => ArtifactScreen(
+                                            title: 'Artifact',
+                                            html: msg.artifactHtml!,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.code),
+                                    label: const Text('Open Artifact'),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         ),
                       );

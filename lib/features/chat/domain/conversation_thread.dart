@@ -23,6 +23,7 @@ class ConversationThread {
             (m) => {
               'role': m.role,
               'content': m.content,
+              'artifactHtml': m.artifactHtml,
               'createdAt': m.createdAt.toIso8601String(),
             },
           )
@@ -37,6 +38,7 @@ class ConversationThread {
       return ChatMessage(
         role: item['role'] as String? ?? 'assistant',
         content: item['content'] as String? ?? '',
+        artifactHtml: item['artifactHtml'] as String?,
         createdAt: DateTime.tryParse(item['createdAt'] as String? ?? ''),
       );
     }).toList();

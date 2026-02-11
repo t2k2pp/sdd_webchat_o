@@ -51,10 +51,12 @@
   - 追加システムプロンプト設定
   - 事前添付ファイル登録
   - チャット時にプロジェクト文脈を注入
+- HTML Artifact表示
+  - LLM応答からHTMLを抽出
+  - ChatメッセージからArtifactを全画面表示
 
 ### 未実装（計画残）
 - 会話履歴のDB移行（現状ファイルベース）
-- HTML Artifact表示
 - Skills/SubAgents/MCP統合本体
 - トークン/コストの日次・月次レポート
 
@@ -116,7 +118,7 @@
 ## 5. 次フェーズ優先度
 
 1. 設定の永続化（secure storage + DB）
-2. HTML Artifact表示
-3. Skills/SubAgents/MCP
-4. 履歴/設定のDB正規化
-5. プロジェクト添付の高度化（検索インデックス/埋め込み）
+2. Skills/SubAgents/MCP
+3. 履歴/設定のDB正規化
+4. プロジェクト添付の高度化（検索インデックス/埋め込み）
+5. Artifactの安全ポリシー強化（sandbox/CSP）
