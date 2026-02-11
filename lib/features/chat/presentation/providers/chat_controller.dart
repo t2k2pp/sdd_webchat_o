@@ -3,8 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/logging/app_logger.dart';
 import '../../../settings/domain/app_settings.dart';
+import '../../../settings/domain/model_endpoint.dart';
 import '../../../settings/presentation/providers/settings_controller.dart';
+import '../../data/azure_openai_client.dart';
+import '../../data/gemini_client.dart';
 import '../../data/ollama_client.dart';
+import '../../data/openai_compatible_client.dart';
 import '../../domain/chat_message.dart';
 import '../../domain/llm_provider_client.dart';
 
@@ -61,7 +65,11 @@ class ChatController extends Notifier<ChatState> {
     try {
       final settings =
           ref.read(settingsControllerProvider).value ?? const AppSettings();
-      final client = _resolveClient(settings);
+      final endpoint = settings.selectedEndpoint;
+      if (endpoint == null) {
+        throw StateError('No model endpoint configured');
+      }
+      final client = _resolveClient(endpoint);
       final content = await client.completeChat(
         messages: nextMessages,
         enableSearch: state.searxngEnabled,
@@ -81,7 +89,7 @@ class ChatController extends Notifier<ChatState> {
           ...nextMessages,
           ChatMessage(
             role: 'assistant',
-            content: 'エラー: LLMへの接続に失敗しました。設定画面のURLを確認してください。',
+            content: 'エラー: 選択中モデルへの接続に失敗しました。設定を確認してください。',
           ),
         ],
         isSending: false,
@@ -89,15 +97,38 @@ class ChatController extends Notifier<ChatState> {
     }
   }
 
-  LlmProviderClient _resolveClient(AppSettings settings) {
+  LlmProviderClient _resolveClient(ModelEndpoint endpoint) {
     final dio = Dio(
       BaseOptions(
-        baseUrl: settings.ollamaBaseUrl,
+        baseUrl: endpoint.baseUrl,
         connectTimeout: const Duration(seconds: 8),
         receiveTimeout: const Duration(seconds: 60),
       ),
     );
 
-    return OllamaClient(dio: dio, model: settings.ollamaModel);
+    return switch (endpoint.provider) {
+      LlmProviderType.ollama => OllamaClient(dio: dio, model: endpoint.model),
+      LlmProviderType.lmStudio => OpenAiCompatibleClient(
+        dio: dio,
+        model: endpoint.model,
+        apiKey: endpoint.apiKey,
+      ),
+      LlmProviderType.llamaCpp => OpenAiCompatibleClient(
+        dio: dio,
+        model: endpoint.model,
+        apiKey: endpoint.apiKey,
+      ),
+      LlmProviderType.gemini => GeminiClient(
+        dio: dio,
+        model: endpoint.model,
+        apiKey: endpoint.apiKey,
+      ),
+      LlmProviderType.azureOpenAi => AzureOpenAiClient(
+        dio: dio,
+        deployment: endpoint.model,
+        apiKey: endpoint.apiKey,
+        apiVersion: endpoint.apiVersion,
+      ),
+    };
   }
 }

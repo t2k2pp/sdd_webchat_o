@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/app_drawer.dart';
+import '../../settings/domain/model_endpoint.dart';
+import '../../settings/presentation/providers/settings_controller.dart';
 import 'providers/chat_controller.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -23,6 +25,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatControllerProvider);
+    final settings = ref.watch(settingsControllerProvider).value;
+    final selectedEndpoint = settings?.selectedEndpoint;
 
     return Scaffold(
       drawer: const AppDrawer(currentPath: '/chat'),
@@ -57,6 +61,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     },
                   ),
           ),
+          if (selectedEndpoint != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Model: ${selectedEndpoint.name} (${selectedEndpoint.provider.label})',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ),
           SafeArea(
             top: false,
             child: Padding(
