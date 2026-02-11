@@ -11,6 +11,7 @@
 - モデルごとにトークン利用量と概算金額を追跡可能
 - Agentic Search（SearXNG反復 + 確信値停止）を実装済み
 - 履歴をローカル保存し、再読込・コピー・エクスポート・共有が可能
+- 履歴永続化をJSONからSQLiteへ移行済み（既存JSONの初回自動移行あり）
 - Project機能（CRUD/選択/追加プロンプト/添付ファイル）を実装済み
 - 選択中Projectの文脈をチャット実行時に注入済み
 - HTML Artifact表示を実装済み（チャット内ボタンから全画面表示）
@@ -28,7 +29,6 @@
 - モデルごとの運用メトリクス（token/cost/saving）を追加
 
 ### まだ残っている点
-- 会話履歴のDB永続化（現状はファイル保存）
 - MCP実行連携（現状はレジストリ管理と文脈注入まで）
 - Project添付の高度検索（RAG化）
 
@@ -39,3 +39,4 @@
 - トークン数がAPIレスポンスに含まれない場合は推定値で補完
 - Agentic SearchはSearXNG `format=json` が失敗する場合、HTML抽出フォールバックを使用
 - Artifactは `webview_flutter` でレンダリング（今後CSP/制限強化予定）
+- 旧 `conversations.json` はSQLite移行時にバックアップ名へリネームされる
