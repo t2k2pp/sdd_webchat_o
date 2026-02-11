@@ -18,6 +18,7 @@
 - Integrations機能（Skills/SubAgents/MCPレジストリ）を実装済み
 - 有効なSkills/SubAgent/MCP情報をチャット実行時に注入済み
 - MCP実行連携を実装済み（LLMのMCP JSON要求を検出し、HTTPブリッジへツール実行）
+- Skill実行器を実装済み（LLMのSkill JSON要求を検出し、有効Skillを実行して結果注入）
 - Skillsは `.skill` / `.zip` アーカイブを取り込み可能
 - 設定をローカル永続化済み（JSONファイル）
 - モデルAPIキーをSecure Storageに保存済み（設定ファイルには非保持）
@@ -31,7 +32,6 @@
 
 ### まだ残っている点
 - Project添付の高度検索（RAG化）
-- Skill実行器（定義された手順の自動実行）
 
 ## 運用上の注意
 
@@ -42,3 +42,4 @@
 - Artifactは `webview_flutter` でレンダリング（今後CSP/制限強化予定）
 - 旧 `conversations.json` はSQLite移行時にバックアップ名へリネームされる
 - MCPは現状 HTTP/HTTPS ブリッジ方式のみ実行（`command` にURLを設定）
+- Skill実行は現状「定義内容の要約・手順抽出」を返す軽量実行方式
