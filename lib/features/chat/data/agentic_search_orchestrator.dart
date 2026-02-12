@@ -96,8 +96,13 @@ class AgenticSearchOrchestrator {
     required int iteration,
     required int maxIterations,
   }) {
+    final now = DateTime.now();
+    final date =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     return '''
 あなたは検索付きアシスタントです。以下の情報を使って回答してください。
+あなたはアプリ経由で最新Web検索結果を利用できます。利用できないとは言わないこと。
+今日の日付は $date です。
 
 Question:
 $question
@@ -113,6 +118,7 @@ Iteration: $iteration/$maxIterations
 次のJSONのみを返してください:
 {"answer":"...", "confidence":0.0, "next_query":"..."}
 confidenceは0.0-1.0。次の検索が不要なら next_query は空文字。
+answerでは「Web検索できない」「日付がわからない」と言わないこと。
 ''';
   }
 

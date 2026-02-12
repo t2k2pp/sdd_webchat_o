@@ -106,6 +106,9 @@ class ChatController extends Notifier<ChatState> {
       final client = _resolveClient(endpoint);
       final projectContext = await _buildProjectContext(userInput.trim());
       final integrationContext = await _buildIntegrationContext();
+      final runtimeContext = _buildRuntimeContext(
+        searxngEnabled: state.searxngEnabled,
+      );
       final enabledSkills = await _listEnabledSkills();
       final enabledMcpServers = await _listEnabledMcpServers();
       if (isFirstTurn) {
@@ -122,6 +125,7 @@ class ChatController extends Notifier<ChatState> {
           ChatMessage(role: 'system', content: projectContext),
         if (integrationContext.trim().isNotEmpty)
           ChatMessage(role: 'system', content: integrationContext),
+        ChatMessage(role: 'system', content: runtimeContext),
         ...nextMessages,
       ];
       final completion = state.searxngEnabled
@@ -368,6 +372,27 @@ class ChatController extends Notifier<ChatState> {
     } catch (_) {
       return '';
     }
+  }
+
+  String _buildRuntimeContext({required bool searxngEnabled}) {
+    final now = DateTime.now();
+    final y = now.year.toString().padLeft(4, '0');
+    final m = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    final hh = now.hour.toString().padLeft(2, '0');
+    final mm = now.minute.toString().padLeft(2, '0');
+    return [
+      'Runtime Context:',
+      '- Current local datetime: $y-$m-$d $hh:$mm',
+      '- Current local date: $y-$m-$d',
+      if (searxngEnabled)
+        '- Web search is ENABLED via app-level SearXNG orchestration.'
+      else
+        '- Web search is DISABLED.',
+      'Do not claim lack of date access. Use this runtime date.',
+      if (searxngEnabled)
+        'Do not claim lack of web search. Search snippets are provided by the app when needed.',
+    ].join('\n');
   }
 
   Future<List<McpServerDefinition>> _listEnabledMcpServers() async {

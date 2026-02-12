@@ -48,6 +48,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final chatState = ref.watch(chatControllerProvider);
     final settings = ref.watch(settingsControllerProvider).value;
     final selectedEndpoint = settings?.selectedEndpoint;
+    final endpoints = settings?.modelEndpoints ?? const <ModelEndpoint>[];
 
     return Scaffold(
       drawer: const AppDrawer(currentPath: '/chat'),
@@ -115,11 +116,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 controller: _controller,
                 isSending: chatState.isSending,
                 searxngEnabled: chatState.searxngEnabled,
-                onToggleSearxng: (enabled) {
-                  ref
-                      .read(chatControllerProvider.notifier)
-                      .toggleSearxng(enabled);
-                },
+                selectedEndpoint: selectedEndpoint,
+                onOpenOptions: () => _openChatOptions(
+                  context: context,
+                  searxngEnabled: chatState.searxngEnabled,
+                  selectedEndpoint: selectedEndpoint,
+                  endpoints: endpoints,
+                ),
                 onSend: () async {
                   final text = _controller.text;
                   _controller.clear();
@@ -134,6 +137,84 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
     );
   }
+
+  Future<void> _openChatOptions({
+    required BuildContext context,
+    required bool searxngEnabled,
+    required ModelEndpoint? selectedEndpoint,
+    required List<ModelEndpoint> endpoints,
+  }) async {
+    var localSearch = searxngEnabled;
+    var localEndpointId = selectedEndpoint?.id;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Chat Options',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: localSearch,
+                      onChanged: (value) {
+                        setModalState(() {
+                          localSearch = value;
+                        });
+                        ref
+                            .read(chatControllerProvider.notifier)
+                            .toggleSearxng(value);
+                      },
+                      title: const Text('SearXNG'),
+                      subtitle: Text(localSearch ? 'ON' : 'OFF'),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      initialValue: localEndpointId,
+                      decoration: const InputDecoration(
+                        labelText: 'Model Endpoint',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: endpoints
+                          .map(
+                            (e) => DropdownMenuItem<String>(
+                              value: e.id,
+                              child: Text('${e.name} (${e.provider.label})'),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) async {
+                        if (value == null) {
+                          return;
+                        }
+                        setModalState(() {
+                          localEndpointId = value;
+                        });
+                        await ref
+                            .read(settingsControllerProvider.notifier)
+                            .selectEndpoint(value);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 }
 
 class _Composer extends StatelessWidget {
@@ -141,14 +222,16 @@ class _Composer extends StatelessWidget {
     required this.controller,
     required this.isSending,
     required this.searxngEnabled,
-    required this.onToggleSearxng,
+    required this.selectedEndpoint,
+    required this.onOpenOptions,
     required this.onSend,
   });
 
   final TextEditingController controller;
   final bool isSending;
   final bool searxngEnabled;
-  final ValueChanged<bool> onToggleSearxng;
+  final ModelEndpoint? selectedEndpoint;
+  final VoidCallback onOpenOptions;
   final VoidCallback onSend;
 
   @override
@@ -181,19 +264,18 @@ class _Composer extends StatelessWidget {
             Row(
               children: [
                 IconButton.filledTonal(
-                  onPressed: () => onToggleSearxng(!searxngEnabled),
-                  icon: Icon(
-                    Icons.travel_explore,
-                    color: searxngEnabled
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
-                  ),
-                  tooltip: 'SearXNG ON/OFF',
+                  onPressed: onOpenOptions,
+                  icon: const Icon(Icons.tune),
+                  tooltip: 'SearXNG / Model',
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  searxngEnabled ? 'SearXNG ON' : 'SearXNG OFF',
+                  [
+                    searxngEnabled ? 'Search ON' : 'Search OFF',
+                    if (selectedEndpoint != null) selectedEndpoint!.name,
+                  ].join(' • '),
                   style: Theme.of(context).textTheme.bodySmall,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const Spacer(),
                 IconButton(
