@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/app_drawer.dart';
@@ -16,10 +17,12 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -49,48 +52,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             child: chatState.messages.isEmpty
                 ? const Center(child: Text('メッセージを送信すると会話が始まります。'))
                 : ListView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     itemCount: chatState.messages.length,
                     itemBuilder: (context, index) {
                       final msg = chatState.messages[index];
                       final isUser = msg.role == 'user';
-                      return Align(
-                        alignment: isUser
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Card(
-                          color: isUser
-                              ? Theme.of(context).colorScheme.primaryContainer
-                              : Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerHighest,
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(msg.content),
-                                if (!isUser && msg.artifactHtml != null) ...[
-                                  const SizedBox(height: 8),
-                                  FilledButton.tonalIcon(
-                                    onPressed: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => ArtifactScreen(
-                                            title: 'Artifact',
-                                            html: msg.artifactHtml!,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    icon: const Icon(Icons.code),
-                                    label: const Text('Open Artifact'),
-                                  ),
-                                ],
-                              ],
+                      if (isUser) {
+                        return Align(
+                          alignment: Alignment.centerRight,
+                          child: Card(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(msg.content),
                             ),
                           ),
-                        ),
+                        );
+                      }
+                      return _AssistantMessage(
+                        content: msg.content,
+                        artifactHtml: msg.artifactHtml,
                       );
                     },
                   ),
@@ -210,6 +194,62 @@ class _Composer extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AssistantMessage extends StatelessWidget {
+  const _AssistantMessage({required this.content, required this.artifactHtml});
+
+  final String content;
+  final String? artifactHtml;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Text('🤖', style: TextStyle(fontSize: 20)),
+              SizedBox(width: 8),
+              SizedBox(width: 24, height: 24),
+            ],
+          ),
+          const SizedBox(height: 8),
+          MarkdownBody(
+            data: content,
+            selectable: true,
+            styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
+                .copyWith(
+                  p: Theme.of(context).textTheme.bodyLarge,
+                  codeblockDecoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+          ),
+          if (artifactHtml != null) ...[
+            const SizedBox(height: 10),
+            FilledButton.tonalIcon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        ArtifactScreen(title: 'Artifact', html: artifactHtml!),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.code),
+              label: const Text('Open Artifact'),
+            ),
+          ],
+        ],
       ),
     );
   }

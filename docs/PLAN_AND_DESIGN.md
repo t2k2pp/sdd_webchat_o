@@ -21,6 +21,7 @@
 - Flutterアプリ基盤（Riverpod / GoRouter / 画面骨格）
 - ハンバーガーメニュー導線（Chat / Projects / History / Settings）
 - チャット入力UI（最大7行拡張 + 下段アイコン列 + 送信アイコン）
+- AI応答のMarkdownレンダリング表示（assistantは全幅レイアウト）
 - SearXNG ON/OFFトグル
 - モデル接続先の複数登録、選択、編集、削除
 - モデルプロバイダ実装
