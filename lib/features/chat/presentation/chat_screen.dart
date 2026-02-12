@@ -97,17 +97,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     },
                   ),
           ),
-          if (selectedEndpoint != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Model: ${selectedEndpoint.name} (${selectedEndpoint.provider.label})',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-            ),
           SafeArea(
             top: false,
             child: Padding(
@@ -115,8 +104,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: _Composer(
                 controller: _controller,
                 isSending: chatState.isSending,
-                searxngEnabled: chatState.searxngEnabled,
-                selectedEndpoint: selectedEndpoint,
                 onOpenOptions: () => _openChatOptions(
                   context: context,
                   searxngEnabled: chatState.searxngEnabled,
@@ -182,6 +169,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       initialValue: localEndpointId,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Model Endpoint',
                         border: OutlineInputBorder(),
@@ -194,6 +182,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             ),
                           )
                           .toList(),
+                      selectedItemBuilder: (context) {
+                        return endpoints
+                            .map(
+                              (e) => Text(
+                                '${e.name} (${e.provider.label})',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            )
+                            .toList();
+                      },
                       onChanged: (value) async {
                         if (value == null) {
                           return;
@@ -221,16 +220,12 @@ class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
     required this.isSending,
-    required this.searxngEnabled,
-    required this.selectedEndpoint,
     required this.onOpenOptions,
     required this.onSend,
   });
 
   final TextEditingController controller;
   final bool isSending;
-  final bool searxngEnabled;
-  final ModelEndpoint? selectedEndpoint;
   final VoidCallback onOpenOptions;
   final VoidCallback onSend;
 
@@ -267,15 +262,6 @@ class _Composer extends StatelessWidget {
                   onPressed: onOpenOptions,
                   icon: const Icon(Icons.tune),
                   tooltip: 'SearXNG / Model',
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  [
-                    searxngEnabled ? 'Search ON' : 'Search OFF',
-                    if (selectedEndpoint != null) selectedEndpoint!.name,
-                  ].join(' • '),
-                  style: Theme.of(context).textTheme.bodySmall,
-                  overflow: TextOverflow.ellipsis,
                 ),
                 const Spacer(),
                 IconButton(
