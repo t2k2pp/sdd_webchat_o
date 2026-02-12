@@ -54,6 +54,7 @@
   - 追加システムプロンプト設定
   - 事前添付ファイル登録
   - チャット時にプロジェクト文脈を注入
+  - 添付検索モード切替（RAG / Agentic Search）
 - HTML Artifact表示
   - LLM応答からHTMLを抽出
   - ChatメッセージからArtifactを全画面表示

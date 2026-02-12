@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math';
 
 import 'package:dio/dio.dart';
@@ -8,6 +7,7 @@ import '../../../../core/logging/app_logger.dart';
 import '../../../integrations/domain/mcp_server_definition.dart';
 import '../../../integrations/domain/skill_definition.dart';
 import '../../../integrations/presentation/providers/integration_providers.dart';
+import '../../../projects/domain/project.dart';
 import '../../../projects/presentation/providers/project_providers.dart';
 import '../../../settings/domain/app_settings.dart';
 import '../../../settings/domain/model_endpoint.dart';
@@ -18,6 +18,7 @@ import '../../data/gemini_client.dart';
 import '../../data/mcp_execution.dart';
 import '../../data/ollama_client.dart';
 import '../../data/openai_compatible_client.dart';
+import '../../data/project_context_resolver.dart';
 import '../../data/skill_execution.dart';
 import '../../domain/chat_message.dart';
 import '../../domain/conversation_thread.dart';
@@ -106,7 +107,7 @@ class ChatController extends Notifier<ChatState> {
         throw StateError('No model endpoint configured');
       }
       final client = _resolveClient(endpoint);
-      final projectContext = await _buildProjectContext();
+      final projectContext = await _buildProjectContext(userInput.trim());
       final integrationContext = await _buildIntegrationContext();
       final enabledSkills = await _listEnabledSkills();
       final enabledMcpServers = await _listEnabledMcpServers();
@@ -273,7 +274,7 @@ class ChatController extends Notifier<ChatState> {
     return _ArtifactExtraction(displayText: raw, html: null);
   }
 
-  Future<String> _buildProjectContext() async {
+  Future<String> _buildProjectContext(String userQuery) async {
     try {
       final repository = ref.read(projectRepositoryProvider);
       final activeId = await repository.getActiveProjectId();
@@ -287,28 +288,17 @@ class ChatController extends Notifier<ChatState> {
 
       final lines = <String>[];
       lines.add('Project: ${project.name}');
+      lines.add('Project Knowledge Mode: ${project.knowledgeMode.label}');
       if (project.additionalSystemPrompt.trim().isNotEmpty) {
         lines.add('Project Prompt:\n${project.additionalSystemPrompt.trim()}');
       }
-      if (project.attachments.isNotEmpty) {
-        lines.add('Project Attachments:');
-      }
-
-      for (final attachment in project.attachments.take(5)) {
-        try {
-          final file = File(attachment.path);
-          if (!await file.exists()) {
-            lines.add('- ${attachment.name}: (file missing)');
-            continue;
-          }
-          final text = await file.readAsString();
-          final normalized = text.replaceAll(RegExp(r'\s+'), ' ').trim();
-          final excerpt = normalized.length > 500
-              ? '${normalized.substring(0, 500)}...'
-              : normalized;
-          lines.add('- ${attachment.name}: $excerpt');
-        } catch (_) {
-          lines.add('- ${attachment.name}: (unreadable)');
+      if (project.attachments.isNotEmpty && userQuery.isNotEmpty) {
+        final knowledge = await const ProjectContextResolver().resolve(
+          project: project,
+          userQuery: userQuery,
+        );
+        if (knowledge.isNotEmpty) {
+          lines.add(knowledge);
         }
       }
       return lines.join('\n\n');

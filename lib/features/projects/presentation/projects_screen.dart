@@ -62,6 +62,7 @@ class ProjectsScreen extends ConsumerWidget {
                     title: Text(project.name),
                     subtitle: Text(
                       '添付: ${project.attachments.length}件\n'
+                      'Mode: ${project.knowledgeMode.label}\n'
                       '${project.additionalSystemPrompt.isEmpty ? '(追加プロンプトなし)' : project.additionalSystemPrompt}',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -133,7 +134,12 @@ class _ProjectEditPage extends StatefulWidget {
 class _ProjectEditPageState extends State<_ProjectEditPage> {
   late final TextEditingController _nameController;
   late final TextEditingController _promptController;
+  late final TextEditingController _ragTopKController;
+  late final TextEditingController _ragChunkSizeController;
+  late final TextEditingController _agenticIterationsController;
+  late final TextEditingController _agenticConfidenceController;
   late List<ProjectAttachment> _attachments;
+  late ProjectKnowledgeMode _knowledgeMode;
 
   bool get _isEdit => widget.initial != null;
 
@@ -144,13 +150,30 @@ class _ProjectEditPageState extends State<_ProjectEditPage> {
     _promptController = TextEditingController(
       text: widget.initial?.additionalSystemPrompt ?? '',
     );
+    _ragTopKController = TextEditingController(
+      text: (widget.initial?.ragTopK ?? 4).toString(),
+    );
+    _ragChunkSizeController = TextEditingController(
+      text: (widget.initial?.ragChunkSize ?? 800).toString(),
+    );
+    _agenticIterationsController = TextEditingController(
+      text: (widget.initial?.agenticMaxIterations ?? 3).toString(),
+    );
+    _agenticConfidenceController = TextEditingController(
+      text: (widget.initial?.agenticConfidenceThreshold ?? 0.55).toString(),
+    );
     _attachments = [...(widget.initial?.attachments ?? const [])];
+    _knowledgeMode = widget.initial?.knowledgeMode ?? ProjectKnowledgeMode.rag;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _promptController.dispose();
+    _ragTopKController.dispose();
+    _ragChunkSizeController.dispose();
+    _agenticIterationsController.dispose();
+    _agenticConfidenceController.dispose();
     super.dispose();
   }
 
@@ -193,6 +216,15 @@ class _ProjectEditPageState extends State<_ProjectEditPage> {
                 additionalSystemPrompt: _promptController.text,
                 attachments: _attachments,
                 updatedAt: DateTime.now(),
+                knowledgeMode: _knowledgeMode,
+                ragTopK: int.tryParse(_ragTopKController.text.trim()) ?? 4,
+                ragChunkSize:
+                    int.tryParse(_ragChunkSizeController.text.trim()) ?? 800,
+                agenticMaxIterations:
+                    int.tryParse(_agenticIterationsController.text.trim()) ?? 3,
+                agenticConfidenceThreshold:
+                    double.tryParse(_agenticConfidenceController.text.trim()) ??
+                    0.55,
               );
               Navigator.of(context).pop(project);
             },
@@ -209,6 +241,84 @@ class _ProjectEditPageState extends State<_ProjectEditPage> {
               labelText: 'Project Name',
               border: OutlineInputBorder(),
             ),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<ProjectKnowledgeMode>(
+            initialValue: _knowledgeMode,
+            decoration: const InputDecoration(
+              labelText: 'Knowledge Search Mode',
+              border: OutlineInputBorder(),
+            ),
+            items: ProjectKnowledgeMode.values
+                .map(
+                  (e) => DropdownMenuItem<ProjectKnowledgeMode>(
+                    value: e,
+                    child: Text(e.label),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value == null) {
+                return;
+              }
+              setState(() {
+                _knowledgeMode = value;
+              });
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _ragTopKController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'RAG TopK',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _ragChunkSizeController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'RAG Chunk Size',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _agenticIterationsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Agentic Iterations',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _agenticConfidenceController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Agentic Confidence (0-1)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           TextField(

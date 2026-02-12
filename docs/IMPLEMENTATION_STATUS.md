@@ -14,6 +14,7 @@
 - 履歴永続化をJSONからSQLiteへ移行済み（既存JSONの初回自動移行あり）
 - Project機能（CRUD/選択/追加プロンプト/添付ファイル）を実装済み
 - 選択中Projectの文脈をチャット実行時に注入済み
+- Project添付検索モード切替を実装済み（RAG / Agentic Search）
 - HTML Artifact表示を実装済み（チャット内ボタンから全画面表示）
 - Integrations機能（Skills/SubAgents/MCPレジストリ）を実装済み
 - 有効なSkills/SubAgent/MCP情報をチャット実行時に注入済み
@@ -31,7 +32,7 @@
 - モデルごとの運用メトリクス（token/cost/saving）を追加
 
 ### まだ残っている点
-- Project添付の高度検索（RAG化）
+- Project添付検索の高度化（埋め込みベクトル索引・ハイブリッド検索）
 
 ## 運用上の注意
 

@@ -1,5 +1,26 @@
 import 'project_attachment.dart';
 
+enum ProjectKnowledgeMode { rag, agenticSearch }
+
+extension ProjectKnowledgeModeX on ProjectKnowledgeMode {
+  String get id => switch (this) {
+    ProjectKnowledgeMode.rag => 'rag',
+    ProjectKnowledgeMode.agenticSearch => 'agentic_search',
+  };
+
+  String get label => switch (this) {
+    ProjectKnowledgeMode.rag => 'RAG',
+    ProjectKnowledgeMode.agenticSearch => 'Agentic Search',
+  };
+
+  static ProjectKnowledgeMode fromId(String id) {
+    return ProjectKnowledgeMode.values.firstWhere(
+      (e) => e.id == id,
+      orElse: () => ProjectKnowledgeMode.rag,
+    );
+  }
+}
+
 class Project {
   const Project({
     required this.id,
@@ -7,6 +28,11 @@ class Project {
     required this.additionalSystemPrompt,
     required this.attachments,
     required this.updatedAt,
+    this.knowledgeMode = ProjectKnowledgeMode.rag,
+    this.ragTopK = 4,
+    this.ragChunkSize = 800,
+    this.agenticMaxIterations = 3,
+    this.agenticConfidenceThreshold = 0.55,
   });
 
   final String id;
@@ -14,6 +40,11 @@ class Project {
   final String additionalSystemPrompt;
   final List<ProjectAttachment> attachments;
   final DateTime updatedAt;
+  final ProjectKnowledgeMode knowledgeMode;
+  final int ragTopK;
+  final int ragChunkSize;
+  final int agenticMaxIterations;
+  final double agenticConfidenceThreshold;
 
   Project copyWith({
     String? id,
@@ -21,6 +52,11 @@ class Project {
     String? additionalSystemPrompt,
     List<ProjectAttachment>? attachments,
     DateTime? updatedAt,
+    ProjectKnowledgeMode? knowledgeMode,
+    int? ragTopK,
+    int? ragChunkSize,
+    int? agenticMaxIterations,
+    double? agenticConfidenceThreshold,
   }) {
     return Project(
       id: id ?? this.id,
@@ -29,6 +65,12 @@ class Project {
           additionalSystemPrompt ?? this.additionalSystemPrompt,
       attachments: attachments ?? this.attachments,
       updatedAt: updatedAt ?? this.updatedAt,
+      knowledgeMode: knowledgeMode ?? this.knowledgeMode,
+      ragTopK: ragTopK ?? this.ragTopK,
+      ragChunkSize: ragChunkSize ?? this.ragChunkSize,
+      agenticMaxIterations: agenticMaxIterations ?? this.agenticMaxIterations,
+      agenticConfidenceThreshold:
+          agenticConfidenceThreshold ?? this.agenticConfidenceThreshold,
     );
   }
 
@@ -39,6 +81,11 @@ class Project {
       'additionalSystemPrompt': additionalSystemPrompt,
       'attachments': attachments.map((e) => e.toJson()).toList(),
       'updatedAt': updatedAt.toIso8601String(),
+      'knowledgeMode': knowledgeMode.id,
+      'ragTopK': ragTopK,
+      'ragChunkSize': ragChunkSize,
+      'agenticMaxIterations': agenticMaxIterations,
+      'agenticConfidenceThreshold': agenticConfidenceThreshold,
     };
   }
 
@@ -54,6 +101,15 @@ class Project {
       updatedAt:
           DateTime.tryParse(json['updatedAt'] as String? ?? '') ??
           DateTime.now(),
+      knowledgeMode: ProjectKnowledgeModeX.fromId(
+        json['knowledgeMode'] as String? ?? 'rag',
+      ),
+      ragTopK: (json['ragTopK'] as num?)?.toInt() ?? 4,
+      ragChunkSize: (json['ragChunkSize'] as num?)?.toInt() ?? 800,
+      agenticMaxIterations:
+          (json['agenticMaxIterations'] as num?)?.toInt() ?? 3,
+      agenticConfidenceThreshold:
+          (json['agenticConfidenceThreshold'] as num?)?.toDouble() ?? 0.55,
     );
   }
 }
