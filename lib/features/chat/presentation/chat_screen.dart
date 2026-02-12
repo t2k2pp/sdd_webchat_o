@@ -28,6 +28,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<ChatState>(chatControllerProvider, (previous, next) {
+      final previousCount = previous?.messages.length ?? 0;
+      if (next.messages.length == previousCount) {
+        return;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scrollController.hasClients) {
+          return;
+        }
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+        );
+      });
+    });
+
     final chatState = ref.watch(chatControllerProvider);
     final settings = ref.watch(settingsControllerProvider).value;
     final selectedEndpoint = settings?.selectedEndpoint;

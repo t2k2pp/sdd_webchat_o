@@ -67,15 +67,11 @@ class ChatController extends Notifier<ChatState> {
 
   @override
   ChatState build() {
-    final settings = ref.watch(settingsControllerProvider).value;
-    final initial = ChatState(
-      conversationId: _newConversationId(),
-      searxngEnabled: settings?.searxngEnabledByDefault ?? false,
-    );
+    const initial = ChatState(conversationId: 'booting_conv');
     if (!_bootstrapped) {
       _bootstrapped = true;
       Future<void>(() async {
-        await _restoreLatestConversation();
+        await _bootstrapInitialState();
       });
     }
     return initial;
@@ -91,8 +87,9 @@ class ChatController extends Notifier<ChatState> {
     }
 
     final userMessage = ChatMessage(role: 'user', content: userInput.trim());
+    final isFirstTurn = state.messages.isEmpty;
     final nextMessages = [...state.messages, userMessage];
-    final title = state.messages.isEmpty ? _titleFrom(userInput) : state.title;
+    final title = isFirstTurn ? _titleFrom(userInput) : state.title;
     state = state.copyWith(
       messages: nextMessages,
       isSending: true,
@@ -111,6 +108,13 @@ class ChatController extends Notifier<ChatState> {
       final integrationContext = await _buildIntegrationContext();
       final enabledSkills = await _listEnabledSkills();
       final enabledMcpServers = await _listEnabledMcpServers();
+      if (isFirstTurn) {
+        final generatedTitle = await _generateConversationTitle(
+          llmClient: client,
+          firstUserMessage: userInput.trim(),
+        );
+        state = state.copyWith(title: generatedTitle);
+      }
       final promptMessages = <ChatMessage>[
         if (settings.systemPrompt.trim().isNotEmpty)
           ChatMessage(role: 'system', content: settings.systemPrompt.trim()),
@@ -472,6 +476,63 @@ class ChatController extends Notifier<ChatState> {
       }
     } catch (error, stackTrace) {
       AppLogger.error('Restore latest conversation failed', error, stackTrace);
+    }
+  }
+
+  Future<void> _bootstrapInitialState() async {
+    final defaults = await _loadSearxngDefaultEnabled();
+    state = state.copyWith(
+      conversationId: _newConversationId(),
+      title: 'New Conversation',
+      searxngEnabled: defaults,
+      messages: const [],
+      isSending: false,
+    );
+    await _restoreLatestConversation();
+  }
+
+  Future<bool> _loadSearxngDefaultEnabled() async {
+    try {
+      final settings = await ref.read(settingsControllerProvider.future);
+      return settings.searxngEnabledByDefault;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String> _generateConversationTitle({
+    required LlmProviderClient llmClient,
+    required String firstUserMessage,
+  }) async {
+    final fallback = _titleFrom(firstUserMessage);
+    if (firstUserMessage.trim().isEmpty) {
+      return fallback;
+    }
+    try {
+      final response = await llmClient.completeChat(
+        messages: [
+          ChatMessage(
+            role: 'system',
+            content:
+                'Generate a concise chat title for the user message. '
+                'Rules: Japanese, max 24 chars, no quotes, title only.',
+          ),
+          ChatMessage(role: 'user', content: firstUserMessage),
+        ],
+        enableSearch: false,
+      );
+      final oneLine = response.content
+          .replaceAll('\n', ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .replaceAll('"', '')
+          .replaceAll("'", '')
+          .trim();
+      if (oneLine.isEmpty) {
+        return fallback;
+      }
+      return oneLine.length <= 24 ? oneLine : '${oneLine.substring(0, 24)}...';
+    } catch (_) {
+      return fallback;
     }
   }
 
