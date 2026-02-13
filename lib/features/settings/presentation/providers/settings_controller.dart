@@ -113,6 +113,11 @@ class SettingsController extends AsyncNotifier<AppSettings> {
     );
   }
 
+  Future<void> updateArtifactSafetyMode(ArtifactSafetyMode mode) async {
+    final current = state.value ?? const AppSettings();
+    await saveSettings(current.copyWith(artifactSafetyMode: mode));
+  }
+
   Future<void> updateEndpoint(ModelEndpoint endpoint) async {
     final current = state.value ?? const AppSettings();
     final nextEndpoints = current.modelEndpoints.map((e) {

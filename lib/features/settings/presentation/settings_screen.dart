@@ -77,6 +77,19 @@ class SettingsScreen extends ConsumerWidget {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.shield_outlined),
+              title: const Text('Artifact Security'),
+              subtitle: Text(settings.artifactSafetyMode.description),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const _ArtifactSettingsPage(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.hub_outlined),
               title: const Text('Model Endpoints'),
               subtitle: Text(
@@ -521,6 +534,47 @@ class _SpeechSettingsPageState extends ConsumerState<_SpeechSettingsPage> {
               label: Text(_previewPlaying ? '停止' : 'テスト再生'),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ArtifactSettingsPage extends ConsumerWidget {
+  const _ArtifactSettingsPage();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsControllerProvider).value;
+    if (settings == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Artifact Security')),
+      body: ListView(
+        children: [
+          for (final mode in ArtifactSafetyMode.values)
+            ListTile(
+              leading: Icon(
+                settings.artifactSafetyMode == mode
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
+              ),
+              title: Text(mode.label),
+              subtitle: Text(mode.description),
+              trailing: settings.artifactSafetyMode == mode
+                  ? const Icon(Icons.check, size: 18)
+                  : null,
+              onTap: () async {
+                if (settings.artifactSafetyMode == mode) {
+                  return;
+                }
+                await ref
+                    .read(settingsControllerProvider.notifier)
+                    .updateArtifactSafetyMode(mode);
+              },
+            ),
         ],
       ),
     );

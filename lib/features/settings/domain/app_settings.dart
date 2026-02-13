@@ -1,5 +1,34 @@
 import 'model_endpoint.dart';
 
+enum ArtifactSafetyMode { safe, interactive, trusted }
+
+extension ArtifactSafetyModeX on ArtifactSafetyMode {
+  String get id => switch (this) {
+    ArtifactSafetyMode.safe => 'safe',
+    ArtifactSafetyMode.interactive => 'interactive',
+    ArtifactSafetyMode.trusted => 'trusted',
+  };
+
+  String get label => switch (this) {
+    ArtifactSafetyMode.safe => 'Safe',
+    ArtifactSafetyMode.interactive => 'Interactive',
+    ArtifactSafetyMode.trusted => 'Trusted',
+  };
+
+  String get description => switch (this) {
+    ArtifactSafetyMode.safe => 'JS無効 / 外部アクセス遮断（推奨）',
+    ArtifactSafetyMode.interactive => 'JS有効 / 外部アクセス遮断',
+    ArtifactSafetyMode.trusted => 'JS有効 / 外部アクセス許可',
+  };
+
+  static ArtifactSafetyMode fromId(String id) {
+    return ArtifactSafetyMode.values.firstWhere(
+      (e) => e.id == id,
+      orElse: () => ArtifactSafetyMode.safe,
+    );
+  }
+}
+
 class AppSettings {
   const AppSettings({
     this.searxngEnabledByDefault = false,
@@ -14,6 +43,7 @@ class AppSettings {
     this.ttsSpeechRate = 0.5,
     this.ttsVolume = 1.0,
     this.ttsPitch = 1.0,
+    this.artifactSafetyMode = ArtifactSafetyMode.interactive,
     this.selectedEndpointId = 'ollama-local',
     this.modelEndpoints = const [
       ModelEndpoint(
@@ -52,6 +82,7 @@ class AppSettings {
   final double ttsSpeechRate;
   final double ttsVolume;
   final double ttsPitch;
+  final ArtifactSafetyMode artifactSafetyMode;
   final String selectedEndpointId;
   final List<ModelEndpoint> modelEndpoints;
 
@@ -77,6 +108,7 @@ class AppSettings {
     double? ttsSpeechRate,
     double? ttsVolume,
     double? ttsPitch,
+    ArtifactSafetyMode? artifactSafetyMode,
     String? selectedEndpointId,
     List<ModelEndpoint>? modelEndpoints,
   }) {
@@ -94,6 +126,7 @@ class AppSettings {
       ttsSpeechRate: ttsSpeechRate ?? this.ttsSpeechRate,
       ttsVolume: ttsVolume ?? this.ttsVolume,
       ttsPitch: ttsPitch ?? this.ttsPitch,
+      artifactSafetyMode: artifactSafetyMode ?? this.artifactSafetyMode,
       selectedEndpointId: selectedEndpointId ?? this.selectedEndpointId,
       modelEndpoints: modelEndpoints ?? this.modelEndpoints,
     );
@@ -113,6 +146,7 @@ class AppSettings {
       'ttsSpeechRate': ttsSpeechRate,
       'ttsVolume': ttsVolume,
       'ttsPitch': ttsPitch,
+      'artifactSafetyMode': artifactSafetyMode.id,
       'selectedEndpointId': selectedEndpointId,
       'modelEndpoints': modelEndpoints.map((e) => e.toJson()).toList(),
     };
@@ -140,6 +174,9 @@ class AppSettings {
       ttsSpeechRate: (json['ttsSpeechRate'] as num?)?.toDouble() ?? 0.5,
       ttsVolume: (json['ttsVolume'] as num?)?.toDouble() ?? 1.0,
       ttsPitch: (json['ttsPitch'] as num?)?.toDouble() ?? 1.0,
+      artifactSafetyMode: ArtifactSafetyModeX.fromId(
+        json['artifactSafetyMode'] as String? ?? 'interactive',
+      ),
       selectedEndpointId:
           json['selectedEndpointId'] as String? ??
           (endpoints.isNotEmpty ? endpoints.first.id : 'ollama-local'),

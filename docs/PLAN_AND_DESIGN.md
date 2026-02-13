@@ -35,6 +35,8 @@
   - System Prompt
   - Speech (TTS)
     - 言語候補は端末一覧から動的取得
+  - Artifact Security
+    - Safe / Interactive / Trusted の切替
   - Model Endpoints
 - 全画面編集UI（ポップアップ廃止）
 - モデル単位のトークン集計
@@ -69,6 +71,7 @@
 - HTML Artifact表示
   - LLM応答からHTMLを抽出
   - ChatメッセージからArtifactを全画面表示
+  - モード別セキュリティ（CSP/JS/外部遷移）を適用
 - Integrations機能
   - Skillsレジストリ（追加/有効化/削除）
   - Sub Agentsレジストリ（追加/選択/削除）

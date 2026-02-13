@@ -132,6 +132,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       return _AssistantMessage(
                         content: msg.content,
                         artifactHtml: msg.artifactHtml,
+                        artifactSafetyMode:
+                            settings?.artifactSafetyMode ??
+                            ArtifactSafetyMode.interactive,
                         ttsEnabled: settings?.ttsEnabled ?? true,
                         isSpeaking: _speakingAssistantIndex == index,
                         onToggleSpeak: () =>
@@ -403,6 +406,7 @@ class _AssistantMessage extends StatelessWidget {
   const _AssistantMessage({
     required this.content,
     required this.artifactHtml,
+    required this.artifactSafetyMode,
     required this.ttsEnabled,
     required this.isSpeaking,
     required this.onToggleSpeak,
@@ -410,6 +414,7 @@ class _AssistantMessage extends StatelessWidget {
 
   final String content;
   final String? artifactHtml;
+  final ArtifactSafetyMode artifactSafetyMode;
   final bool ttsEnabled;
   final bool isSpeaking;
   final VoidCallback onToggleSpeak;
@@ -527,8 +532,11 @@ class _AssistantMessage extends StatelessWidget {
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) =>
-                        ArtifactScreen(title: 'Artifact', html: artifactHtml!),
+                    builder: (_) => ArtifactScreen(
+                      title: 'Artifact',
+                      html: artifactHtml!,
+                      safetyMode: artifactSafetyMode,
+                    ),
                   ),
                 );
               },
