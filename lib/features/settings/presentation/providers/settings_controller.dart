@@ -89,6 +89,11 @@ class SettingsController extends AsyncNotifier<AppSettings> {
     );
   }
 
+  Future<void> updateSearchMaxFallbackCharacters(int maxChars) async {
+    final current = state.value ?? const AppSettings();
+    await saveSettings(current.copyWith(searchMaxFallbackCharacters: maxChars));
+  }
+
   Future<void> updateSystemPrompt(String prompt) async {
     final current = state.value ?? const AppSettings();
     await saveSettings(current.copyWith(systemPrompt: prompt));

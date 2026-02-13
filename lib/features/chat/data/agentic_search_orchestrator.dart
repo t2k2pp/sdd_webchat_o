@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:dio/dio.dart';
 
+import '../../../core/logging/app_logger.dart';
 import '../../settings/domain/app_settings.dart';
 import '../domain/chat_message.dart';
 import '../domain/llm_provider_client.dart';
@@ -14,6 +15,10 @@ class AgenticSearchOrchestrator {
           baseUrl: searxngBaseUrl,
           connectTimeout: const Duration(seconds: 8),
           receiveTimeout: const Duration(seconds: 20),
+          headers: {
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          },
         ),
       );
 
@@ -28,7 +33,32 @@ class AgenticSearchOrchestrator {
         ? messages.last.content
         : 'Question';
     final freshnessSensitive = _isFreshnessSensitive(originalQuestion);
-    var query = originalQuestion;
+
+    // Generate context-aware initial query
+    var query = await _generateInitialQuery(
+      messages: messages,
+      llmClient: llmClient,
+      originalQuestion: originalQuestion,
+    );
+
+    // If the orchestrator decides no search is needed, fallback to normal chat
+    if (query == 'NO_SEARCH') {
+      final response = await llmClient.completeChat(
+        messages: messages,
+        enableSearch: false,
+      );
+      return ChatCompletionResult(
+        content: response.content,
+        inputTokens: response.inputTokens,
+        outputTokens: response.outputTokens,
+      );
+    }
+
+    // Fallback if query generation completely failed but we still want to try (should not happen with NO_SEARCH logic usually)
+    if (query.isEmpty) {
+      query = originalQuestion;
+    }
+
     var bestAnswer = '';
     var bestConfidence = 0.0;
     var totalInTokens = 0;
@@ -136,9 +166,14 @@ class AgenticSearchOrchestrator {
 あなたはアプリ経由で最新Web検索結果を利用できます。利用できないとは言わないこと。
 今日の日付は $date です。
 回答は必ずMarkdown形式で、見出しと箇条書きを使って構造化すること。
-検索スニペットに根拠がない情報は断定しないこと。
-今日より未来の日付の出来事は、スニペットに明示根拠がある場合のみ記述すること。
-根拠が弱い場合は「未確認」または「確認できません」と明記すること。
+
+重要: 検索スニペットがHTMLからの抽出テキストの場合、文構造が崩れていることがあります。
+その場合でも、単語や断片的な情報から文脈を読み取り、最大限回答を試みてください。
+
+ユーザーが特定の出来事があったと主張している場合、検索結果にそれがなくても即座に否定しないこと。
+その場合は「スニペットに情報が不足している」と仮定し、検証のための next_query を生成すること。
+否定するのは、明確に「そのような事実はなかった」という証拠が見つかった場合のみにすること。
+「確認できません」と答えるのは、本当に全く情報がなく、かつ多角的な検索（next_query）を試みた後のみにしてください。
 
 Question:
 $question
@@ -159,7 +194,57 @@ answerには、可能な範囲で参照URLを末尾に箇条書きで含める�
 ''';
   }
 
+  Future<String> _generateInitialQuery({
+    required List<ChatMessage> messages,
+    required LlmProviderClient llmClient,
+    required String originalQuestion,
+  }) async {
+    // Always generate a query to handle complex first messages (e.g. detailed travel plans)
+    // if (messages.length <= 1) {
+    //   return originalQuestion;
+    // }
+
+    try {
+      // Create a history context string (last 6 messages max)
+      final history = messages.length > 6
+          ? messages.sublist(messages.length - 6)
+          : messages;
+
+      final prompt =
+          '''
+以下の会話履歴を踏まえて、最後のユーザーの質問に対して「Web検索が必要か」を判断してください。
+検索が必要な場合、最適な「Web検索クエリ」を1つだけ生成してください。
+検索が不要な場合（挨拶、一般的な会話、知識を問わない質問、論理パズル、プログラムコードの生成など）は、単に `NO_SEARCH` とだけ返してください。
+
+回答はクエリ文字列、または `NO_SEARCH` のみです。引用符や説明は不要です。
+
+会話履歴:
+${history.map((m) => '${m.role}: ${m.content}').join('\n')}
+
+判定・検索クエリ:
+''';
+
+      final response = await llmClient.completeChat(
+        messages: [ChatMessage(role: 'user', content: prompt)],
+        enableSearch: false,
+      );
+
+      final result = response.content
+          .trim()
+          .replaceAll('"', '')
+          .replaceAll("'", "");
+      if (result.isEmpty) {
+        return originalQuestion;
+      }
+      return result;
+    } catch (e) {
+      AppLogger.warning('Failed to generate initial query', e);
+      return originalQuestion;
+    }
+  }
+
   Future<_SearchBundle> _search(String query, AppSettings settings) async {
+    // Try JSON API
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '/search',
@@ -172,6 +257,7 @@ answerには、可能な範囲で参照URLを末尾に箇条書きで含める�
       );
       final data = response.data ?? const {};
       final results = data['results'];
+
       if (results is List && results.isNotEmpty) {
         final lines = <String>[];
         final urls = <String>[];
@@ -199,19 +285,33 @@ answerには、可能な範囲で参照URLを末尾に箇条書きで含める�
         urls: [],
         failed: true,
       );
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.error('SearXNG API failed', e, s);
       // fall through to html fallback
     }
 
+    // Try HTML Fallback
     try {
       final html = await _dio.get<String>(
         '/search',
         queryParameters: {'q': query, 'time_range': settings.searchTimeRange},
       );
-      final text = (html.data ?? '')
+
+      var text = (html.data ?? '')
+          // Remove script and style elements content and all
+          .replaceAll(
+            RegExp(r'<(script|style)[^>]*>[\s\S]*?</\1>', caseSensitive: false),
+            '',
+          )
+          // Replace common block elements with newlines for better structure
+          .replaceAll(
+            RegExp(r'<(div|p|br|li|h[1-6])[^>]*>', caseSensitive: false),
+            '\n',
+          )
           .replaceAll(RegExp(r'<[^>]*>'), ' ')
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim();
+
       if (text.isEmpty) {
         return const _SearchBundle(
           snippets: '(検索結果なし)',
@@ -220,14 +320,19 @@ answerには、可能な範囲で参照URLを末尾に箇条書きで含める�
           failed: true,
         );
       }
-      final end = min(text.length, 1400);
+      // Take a bit more context for HTML fallback since it's unstructured
+      // Use configured max characters
+      final end = min(text.length, settings.searchMaxFallbackCharacters);
+      final searchUrl =
+          '${settings.searxngBaseUrl}/search?q=${Uri.encodeQueryComponent(query)}&time_range=${settings.searchTimeRange}';
       return _SearchBundle(
         snippets: text.substring(0, end),
-        hitCount: 0,
-        urls: const [],
+        hitCount: 1,
+        urls: [searchUrl],
         failed: false,
       );
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.error('SearXNG HTML fallback failed', e, s);
       return const _SearchBundle(
         snippets: '(検索失敗)',
         hitCount: 0,

@@ -191,6 +191,27 @@ class _SearchSettingsPage extends ConsumerWidget {
             },
           ),
           ListTile(
+            title: const Text('Search Max HTML Chars'),
+            subtitle: Text('${settings.searchMaxFallbackCharacters} chars'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final value = await _pushTextEditPage(
+                context,
+                title: 'Search Max HTML Chars',
+                label: 'Max Characters',
+                initialValue: settings.searchMaxFallbackCharacters.toString(),
+              );
+              if (value != null && int.tryParse(value.trim()) != null) {
+                final intVal = int.parse(value.trim());
+                if (intVal > 0) {
+                  await ref
+                      .read(settingsControllerProvider.notifier)
+                      .updateSearchMaxFallbackCharacters(intVal);
+                }
+              }
+            },
+          ),
+          ListTile(
             title: const Text('Agentic Search Policy'),
             subtitle: Text(
               'max=${settings.maxSearchIterations}, confidence=${settings.confidenceThreshold.toStringAsFixed(2)}, '
@@ -1335,8 +1356,13 @@ Future<String> _checkConnections(AppSettings settings) async {
     try {
       final response = await dio.getUri(Uri.parse('$url$path'));
       return '$name: ${response.statusCode}';
-    } catch (_) {
-      return '$name: NG';
+    } on DioException catch (e) {
+      if (e.response != null) {
+        return '$name: ${e.response?.statusCode}';
+      }
+      return '$name: ${e.type.name}';
+    } catch (e) {
+      return '$name: Error';
     }
   }
 

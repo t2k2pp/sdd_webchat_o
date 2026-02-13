@@ -36,6 +36,7 @@ class AppSettings {
     this.confidenceThreshold = 0.75,
     this.searchTimeRange = 'month',
     this.searchSafeSearch = 1,
+    this.searchMaxFallbackCharacters = 5000,
     this.searxngBaseUrl = 'http://192.168.1.40:8080',
     this.systemPrompt = '',
     this.ttsEnabled = true,
@@ -75,6 +76,7 @@ class AppSettings {
   final double confidenceThreshold;
   final String searchTimeRange;
   final int searchSafeSearch;
+  final int searchMaxFallbackCharacters;
   final String searxngBaseUrl;
   final String systemPrompt;
   final bool ttsEnabled;
@@ -101,6 +103,7 @@ class AppSettings {
     double? confidenceThreshold,
     String? searchTimeRange,
     int? searchSafeSearch,
+    int? searchMaxFallbackCharacters,
     String? searxngBaseUrl,
     String? systemPrompt,
     bool? ttsEnabled,
@@ -119,6 +122,8 @@ class AppSettings {
       confidenceThreshold: confidenceThreshold ?? this.confidenceThreshold,
       searchTimeRange: searchTimeRange ?? this.searchTimeRange,
       searchSafeSearch: searchSafeSearch ?? this.searchSafeSearch,
+      searchMaxFallbackCharacters:
+          searchMaxFallbackCharacters ?? this.searchMaxFallbackCharacters,
       searxngBaseUrl: searxngBaseUrl ?? this.searxngBaseUrl,
       systemPrompt: systemPrompt ?? this.systemPrompt,
       ttsEnabled: ttsEnabled ?? this.ttsEnabled,
@@ -139,6 +144,7 @@ class AppSettings {
       'confidenceThreshold': confidenceThreshold,
       'searchTimeRange': searchTimeRange,
       'searchSafeSearch': searchSafeSearch,
+      'searchMaxFallbackCharacters': searchMaxFallbackCharacters,
       'searxngBaseUrl': searxngBaseUrl,
       'systemPrompt': systemPrompt,
       'ttsEnabled': ttsEnabled,
@@ -166,6 +172,8 @@ class AppSettings {
           (json['confidenceThreshold'] as num?)?.toDouble() ?? 0.75,
       searchTimeRange: json['searchTimeRange'] as String? ?? 'month',
       searchSafeSearch: (json['searchSafeSearch'] as num?)?.toInt() ?? 1,
+      searchMaxFallbackCharacters:
+          (json['searchMaxFallbackCharacters'] as num?)?.toInt() ?? 5000,
       searxngBaseUrl:
           json['searxngBaseUrl'] as String? ?? 'http://192.168.1.40:8080',
       systemPrompt: json['systemPrompt'] as String? ?? '',

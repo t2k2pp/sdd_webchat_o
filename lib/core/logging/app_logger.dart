@@ -24,4 +24,14 @@ class AppLogger {
       developer.log(message, name: 'sdd_webchat_o.debug');
     }
   }
+
+  static void warning(String message, [Object? error, StackTrace? stackTrace]) {
+    developer.log(
+      message,
+      name: 'sdd_webchat_o',
+      error: error,
+      stackTrace: stackTrace,
+      level: 900,
+    );
+  }
 }
