@@ -12,6 +12,8 @@ import '../../../projects/presentation/providers/project_providers.dart';
 import '../../../settings/domain/app_settings.dart';
 import '../../../settings/domain/model_endpoint.dart';
 import '../../../settings/presentation/providers/settings_controller.dart';
+import '../../../usage/domain/usage_event.dart';
+import '../../../usage/presentation/providers/usage_report_providers.dart';
 import '../../data/agentic_search_orchestrator.dart';
 import '../../data/azure_openai_client.dart';
 import '../../data/gemini_client.dart';
@@ -165,6 +167,25 @@ class ChatController extends Notifier<ChatState> {
             endpointId: endpoint.id,
             inputTokens: inputTokens,
             outputTokens: outputTokens,
+          );
+      await ref
+          .read(usageReportRepositoryProvider)
+          .addEvent(
+            UsageEvent(
+              id: 'usage_${DateTime.now().microsecondsSinceEpoch}',
+              timestamp: DateTime.now(),
+              endpointId: endpoint.id,
+              endpointName: endpoint.name,
+              inputTokens: inputTokens,
+              outputTokens: outputTokens,
+              currency: endpoint.currency,
+              actualInputCostPerMillion: endpoint.actualInputCostPerMillion,
+              actualOutputCostPerMillion: endpoint.actualOutputCostPerMillion,
+              referenceInputCostPerMillion:
+                  endpoint.referenceInputCostPerMillion,
+              referenceOutputCostPerMillion:
+                  endpoint.referenceOutputCostPerMillion,
+            ),
           );
       final artifact = _extractArtifact(finalResult.content);
 

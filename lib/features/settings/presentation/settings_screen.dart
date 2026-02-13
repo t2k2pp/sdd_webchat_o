@@ -5,6 +5,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../app/widgets/app_drawer.dart';
 import '../../integrations/presentation/integrations_screen.dart';
+import '../../usage/presentation/usage_reports_page.dart';
 import '../domain/app_settings.dart';
 import '../domain/model_endpoint.dart';
 import 'providers/settings_controller.dart';
@@ -88,6 +89,17 @@ class SettingsScreen extends ConsumerWidget {
                   MaterialPageRoute(
                     builder: (_) => const _ModelEndpointsPage(),
                   ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bar_chart_outlined),
+              title: const Text('Usage Reports'),
+              subtitle: const Text('日次/月次 トークン・コスト集計'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const UsageReportsPage()),
                 );
               },
             ),
