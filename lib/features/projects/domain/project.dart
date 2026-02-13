@@ -2,6 +2,8 @@ import 'project_attachment.dart';
 
 enum ProjectKnowledgeMode { rag, agenticSearch }
 
+enum ProjectRetrievalMode { lexical, hybrid }
+
 extension ProjectKnowledgeModeX on ProjectKnowledgeMode {
   String get id => switch (this) {
     ProjectKnowledgeMode.rag => 'rag',
@@ -21,6 +23,25 @@ extension ProjectKnowledgeModeX on ProjectKnowledgeMode {
   }
 }
 
+extension ProjectRetrievalModeX on ProjectRetrievalMode {
+  String get id => switch (this) {
+    ProjectRetrievalMode.lexical => 'lexical',
+    ProjectRetrievalMode.hybrid => 'hybrid',
+  };
+
+  String get label => switch (this) {
+    ProjectRetrievalMode.lexical => 'Lexical (BM25)',
+    ProjectRetrievalMode.hybrid => 'Hybrid (BM25 + Embedding)',
+  };
+
+  static ProjectRetrievalMode fromId(String id) {
+    return ProjectRetrievalMode.values.firstWhere(
+      (e) => e.id == id,
+      orElse: () => ProjectRetrievalMode.lexical,
+    );
+  }
+}
+
 class Project {
   const Project({
     required this.id,
@@ -29,6 +50,8 @@ class Project {
     required this.attachments,
     required this.updatedAt,
     this.knowledgeMode = ProjectKnowledgeMode.rag,
+    this.retrievalMode = ProjectRetrievalMode.lexical,
+    this.embeddingModel = '',
     this.ragTopK = 4,
     this.ragChunkSize = 800,
     this.agenticMaxIterations = 3,
@@ -41,6 +64,8 @@ class Project {
   final List<ProjectAttachment> attachments;
   final DateTime updatedAt;
   final ProjectKnowledgeMode knowledgeMode;
+  final ProjectRetrievalMode retrievalMode;
+  final String embeddingModel;
   final int ragTopK;
   final int ragChunkSize;
   final int agenticMaxIterations;
@@ -53,6 +78,8 @@ class Project {
     List<ProjectAttachment>? attachments,
     DateTime? updatedAt,
     ProjectKnowledgeMode? knowledgeMode,
+    ProjectRetrievalMode? retrievalMode,
+    String? embeddingModel,
     int? ragTopK,
     int? ragChunkSize,
     int? agenticMaxIterations,
@@ -66,6 +93,8 @@ class Project {
       attachments: attachments ?? this.attachments,
       updatedAt: updatedAt ?? this.updatedAt,
       knowledgeMode: knowledgeMode ?? this.knowledgeMode,
+      retrievalMode: retrievalMode ?? this.retrievalMode,
+      embeddingModel: embeddingModel ?? this.embeddingModel,
       ragTopK: ragTopK ?? this.ragTopK,
       ragChunkSize: ragChunkSize ?? this.ragChunkSize,
       agenticMaxIterations: agenticMaxIterations ?? this.agenticMaxIterations,
@@ -82,6 +111,8 @@ class Project {
       'attachments': attachments.map((e) => e.toJson()).toList(),
       'updatedAt': updatedAt.toIso8601String(),
       'knowledgeMode': knowledgeMode.id,
+      'retrievalMode': retrievalMode.id,
+      'embeddingModel': embeddingModel,
       'ragTopK': ragTopK,
       'ragChunkSize': ragChunkSize,
       'agenticMaxIterations': agenticMaxIterations,
@@ -104,6 +135,10 @@ class Project {
       knowledgeMode: ProjectKnowledgeModeX.fromId(
         json['knowledgeMode'] as String? ?? 'rag',
       ),
+      retrievalMode: ProjectRetrievalModeX.fromId(
+        json['retrievalMode'] as String? ?? 'lexical',
+      ),
+      embeddingModel: json['embeddingModel'] as String? ?? '',
       ragTopK: (json['ragTopK'] as num?)?.toInt() ?? 4,
       ragChunkSize: (json['ragChunkSize'] as num?)?.toInt() ?? 800,
       agenticMaxIterations:

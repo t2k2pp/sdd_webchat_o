@@ -20,6 +20,7 @@ import '../../data/gemini_client.dart';
 import '../../data/mcp_execution.dart';
 import '../../data/ollama_client.dart';
 import '../../data/openai_compatible_client.dart';
+import '../../data/project_embedding_client.dart';
 import '../../data/project_context_resolver.dart';
 import '../../data/skill_execution.dart';
 import '../../domain/chat_message.dart';
@@ -106,7 +107,10 @@ class ChatController extends Notifier<ChatState> {
         throw StateError('No model endpoint configured');
       }
       final client = _resolveClient(endpoint);
-      final projectContext = await _buildProjectContext(userInput.trim());
+      final projectContext = await _buildProjectContext(
+        userInput.trim(),
+        endpoint,
+      );
       final integrationContext = await _buildIntegrationContext();
       final runtimeContext = _buildRuntimeContext(
         searxngEnabled: state.searxngEnabled,
@@ -309,7 +313,10 @@ class ChatController extends Notifier<ChatState> {
     return _ArtifactExtraction(displayText: raw, html: null);
   }
 
-  Future<String> _buildProjectContext(String userQuery) async {
+  Future<String> _buildProjectContext(
+    String userQuery,
+    ModelEndpoint selectedEndpoint,
+  ) async {
     try {
       final repository = ref.read(projectRepositoryProvider);
       final activeId = await repository.getActiveProjectId();
@@ -328,9 +335,17 @@ class ChatController extends Notifier<ChatState> {
         lines.add('Project Prompt:\n${project.additionalSystemPrompt.trim()}');
       }
       if (project.attachments.isNotEmpty && userQuery.isNotEmpty) {
+        final embeddingClient = EndpointEmbeddingClient.forEndpoint(
+          Dio(BaseOptions(baseUrl: selectedEndpoint.baseUrl)),
+          selectedEndpoint,
+        );
         final knowledge = await const ProjectContextResolver().resolve(
           project: project,
           userQuery: userQuery,
+          embeddingClient: embeddingClient,
+          embeddingModel: project.embeddingModel.trim().isEmpty
+              ? selectedEndpoint.model
+              : project.embeddingModel.trim(),
         );
         if (knowledge.isNotEmpty) {
           lines.add(knowledge);

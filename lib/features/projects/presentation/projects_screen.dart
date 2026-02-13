@@ -62,7 +62,7 @@ class ProjectsScreen extends ConsumerWidget {
                     title: Text(project.name),
                     subtitle: Text(
                       '添付: ${project.attachments.length}件\n'
-                      'Mode: ${project.knowledgeMode.label}\n'
+                      'Mode: ${project.knowledgeMode.label} / ${project.retrievalMode.label}\n'
                       '${project.additionalSystemPrompt.isEmpty ? '(追加プロンプトなし)' : project.additionalSystemPrompt}',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -138,8 +138,10 @@ class _ProjectEditPageState extends State<_ProjectEditPage> {
   late final TextEditingController _ragChunkSizeController;
   late final TextEditingController _agenticIterationsController;
   late final TextEditingController _agenticConfidenceController;
+  late final TextEditingController _embeddingModelController;
   late List<ProjectAttachment> _attachments;
   late ProjectKnowledgeMode _knowledgeMode;
+  late ProjectRetrievalMode _retrievalMode;
 
   bool get _isEdit => widget.initial != null;
 
@@ -162,8 +164,13 @@ class _ProjectEditPageState extends State<_ProjectEditPage> {
     _agenticConfidenceController = TextEditingController(
       text: (widget.initial?.agenticConfidenceThreshold ?? 0.55).toString(),
     );
+    _embeddingModelController = TextEditingController(
+      text: widget.initial?.embeddingModel ?? '',
+    );
     _attachments = [...(widget.initial?.attachments ?? const [])];
     _knowledgeMode = widget.initial?.knowledgeMode ?? ProjectKnowledgeMode.rag;
+    _retrievalMode =
+        widget.initial?.retrievalMode ?? ProjectRetrievalMode.lexical;
   }
 
   @override
@@ -174,6 +181,7 @@ class _ProjectEditPageState extends State<_ProjectEditPage> {
     _ragChunkSizeController.dispose();
     _agenticIterationsController.dispose();
     _agenticConfidenceController.dispose();
+    _embeddingModelController.dispose();
     super.dispose();
   }
 
@@ -217,6 +225,8 @@ class _ProjectEditPageState extends State<_ProjectEditPage> {
                 attachments: _attachments,
                 updatedAt: DateTime.now(),
                 knowledgeMode: _knowledgeMode,
+                retrievalMode: _retrievalMode,
+                embeddingModel: _embeddingModelController.text.trim(),
                 ragTopK: int.tryParse(_ragTopKController.text.trim()) ?? 4,
                 ragChunkSize:
                     int.tryParse(_ragChunkSizeController.text.trim()) ?? 800,
@@ -265,6 +275,39 @@ class _ProjectEditPageState extends State<_ProjectEditPage> {
                 _knowledgeMode = value;
               });
             },
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<ProjectRetrievalMode>(
+            initialValue: _retrievalMode,
+            decoration: const InputDecoration(
+              labelText: 'Retrieval Mode',
+              border: OutlineInputBorder(),
+            ),
+            items: ProjectRetrievalMode.values
+                .map(
+                  (e) => DropdownMenuItem<ProjectRetrievalMode>(
+                    value: e,
+                    child: Text(e.label),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value == null) {
+                return;
+              }
+              setState(() {
+                _retrievalMode = value;
+              });
+            },
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _embeddingModelController,
+            decoration: const InputDecoration(
+              labelText: 'Embedding Model (optional)',
+              hintText: 'empty = selected chat model',
+              border: OutlineInputBorder(),
+            ),
           ),
           const SizedBox(height: 12),
           Row(

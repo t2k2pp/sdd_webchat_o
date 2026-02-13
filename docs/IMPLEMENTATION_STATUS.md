@@ -27,6 +27,8 @@
 - 選択中Projectの文脈をチャット実行時に注入済み
 - Project添付検索モード切替を実装済み（RAG / Agentic Search）
 - Project添付をチャンク索引化し、BM25風スコアリングで検索精度を改善
+- Project Retrieval Mode（Lexical / Hybrid）を実装済み
+- Hybrid時に埋め込みモデルを使った再ランキングを実装済み（Ollama/OpenAI互換）
 - HTML Artifact表示を実装済み（チャット内ボタンから全画面表示）
 - AI応答は吹き出しを使わず全幅表示（先頭に🤖、将来アイコン用スロット確保）
 - AI応答行に読み上げボタンを追加（TTSで再生/停止）
@@ -50,7 +52,7 @@
 - モデルごとの運用メトリクス（token/cost/saving）を追加
 
 ### まだ残っている点
-- Project添付検索の高度化（埋め込みモデル連携とハイブリッド検索）
+- Project添付検索の高度化（永続ベクトル索引と再利用キャッシュ）
 
 ## 運用上の注意
 

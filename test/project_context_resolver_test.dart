@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sdd_webchat_o/features/chat/data/project_embedding_client.dart';
 import 'package:sdd_webchat_o/features/chat/data/project_context_resolver.dart';
 import 'package:sdd_webchat_o/features/projects/domain/project.dart';
 import 'package:sdd_webchat_o/features/projects/domain/project_attachment.dart';
@@ -69,5 +70,61 @@ void main() {
         await dir.delete(recursive: true);
       },
     );
+
+    test(
+      'hybrid mode uses embedding client and returns ranked snippets',
+      () async {
+        final dir = await Directory.systemTemp.createTemp('hybrid_test_');
+        final file = File('${dir.path}/hybrid.txt');
+        await file.writeAsString(
+          'alpha alpha project note. beta keyword is here. '
+          'gamma details for architecture.',
+        );
+
+        final project = Project(
+          id: 'p3',
+          name: 'Hybrid',
+          additionalSystemPrompt: '',
+          attachments: [
+            ProjectAttachment(id: 'a3', path: file.path, name: 'hybrid.txt'),
+          ],
+          updatedAt: DateTime.now(),
+          knowledgeMode: ProjectKnowledgeMode.rag,
+          retrievalMode: ProjectRetrievalMode.hybrid,
+          embeddingModel: 'nomic-embed-text',
+        );
+
+        final context = await const ProjectContextResolver().resolve(
+          project: project,
+          userQuery: 'beta architecture',
+          embeddingClient: _FakeEmbeddingClient(),
+          embeddingModel: 'nomic-embed-text',
+        );
+
+        expect(context, contains('Project Knowledge (RAG):'));
+        expect(context, contains('hybrid.txt'));
+        await dir.delete(recursive: true);
+      },
+    );
   });
+}
+
+class _FakeEmbeddingClient implements ProjectEmbeddingClient {
+  @override
+  Future<List<List<double>>> embedTexts({
+    required List<String> texts,
+    required String model,
+  }) async {
+    return texts.map(_embed).toList(growable: false);
+  }
+
+  List<double> _embed(String text) {
+    final lower = text.toLowerCase();
+    return [
+      lower.contains('alpha') ? 1 : 0,
+      lower.contains('beta') ? 1 : 0,
+      lower.contains('gamma') ? 1 : 0,
+      lower.length / 1000,
+    ];
+  }
 }

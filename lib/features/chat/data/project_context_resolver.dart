@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'project_embedding_client.dart';
 import '../../projects/domain/project.dart';
 import '../../projects/domain/project_attachment.dart';
 
@@ -10,6 +11,8 @@ class ProjectContextResolver {
   Future<String> resolve({
     required Project project,
     required String userQuery,
+    ProjectEmbeddingClient? embeddingClient,
+    String? embeddingModel,
   }) async {
     final q = userQuery.trim();
     if (project.attachments.isEmpty) {
@@ -26,19 +29,33 @@ class ProjectContextResolver {
     if (index.chunks.isEmpty) {
       return '';
     }
+    final model = (embeddingModel ?? project.embeddingModel).trim();
+    final useHybrid =
+        project.retrievalMode == ProjectRetrievalMode.hybrid &&
+        embeddingClient != null &&
+        model.isNotEmpty;
+    final hybrid = useHybrid
+        ? await _buildHybridContext(
+            index: index,
+            embeddingClient: embeddingClient,
+            embeddingModel: model,
+          )
+        : null;
 
     return switch (project.knowledgeMode) {
-      ProjectKnowledgeMode.rag => _resolveRag(
+      ProjectKnowledgeMode.rag => await _resolveRag(
         index: index,
         query: q,
         topK: project.ragTopK,
+        hybrid: hybrid,
       ),
-      ProjectKnowledgeMode.agenticSearch => _resolveAgentic(
+      ProjectKnowledgeMode.agenticSearch => await _resolveAgentic(
         index: index,
         query: q,
         topK: project.ragTopK,
         maxIterations: project.agenticMaxIterations,
         minConfidence: project.agenticConfidenceThreshold,
+        hybrid: hybrid,
       ),
     };
   }
@@ -64,12 +81,18 @@ class ProjectContextResolver {
     return docs;
   }
 
-  String _resolveRag({
+  Future<String> _resolveRag({
     required _ChunkIndex index,
     required String query,
     required int topK,
-  }) {
-    final results = _rankChunks(index: index, query: query, topK: topK);
+    _HybridContext? hybrid,
+  }) async {
+    final results = await _rankChunks(
+      index: index,
+      query: query,
+      topK: topK,
+      hybrid: hybrid,
+    );
     if (results.isEmpty) {
       return '';
     }
@@ -82,19 +105,25 @@ class ProjectContextResolver {
     return lines.join('\n');
   }
 
-  String _resolveAgentic({
+  Future<String> _resolveAgentic({
     required _ChunkIndex index,
     required String query,
     required int topK,
     required int maxIterations,
     required double minConfidence,
-  }) {
+    _HybridContext? hybrid,
+  }) async {
     var currentQuery = query;
     var best = <_RankedChunk>[];
     var bestConfidence = 0.0;
 
     for (var i = 0; i < maxIterations.clamp(1, 6); i++) {
-      final ranked = _rankChunks(index: index, query: currentQuery, topK: topK);
+      final ranked = await _rankChunks(
+        index: index,
+        query: currentQuery,
+        topK: topK,
+        hybrid: hybrid,
+      );
       if (ranked.isNotEmpty) {
         final confidence = _scoreToConfidence(ranked.first.score);
         if (confidence > bestConfidence) {
@@ -147,18 +176,30 @@ class ProjectContextResolver {
     return lines.join('\n');
   }
 
-  List<_RankedChunk> _rankChunks({
+  Future<List<_RankedChunk>> _rankChunks({
     required _ChunkIndex index,
     required String query,
     required int topK,
-  }) {
+    _HybridContext? hybrid,
+  }) async {
     final queryTerms = _tokenCounts(query);
     if (queryTerms.isEmpty) {
       return const [];
     }
+    final vectorScores = await _vectorScores(
+      hybrid: hybrid,
+      query: query,
+      chunkCount: index.chunks.length,
+    );
     final candidates = <_RankedChunk>[];
-    for (final chunk in index.chunks) {
-      final score = _score(queryTerms, chunk, index);
+    for (var i = 0; i < index.chunks.length; i++) {
+      final chunk = index.chunks[i];
+      final lexicalScore = _score(queryTerms, chunk, index);
+      final vectorScore = vectorScores[i];
+      final score = _combinedScore(
+        lexicalScore: lexicalScore,
+        vectorScore: vectorScore,
+      );
       if (score <= 0) {
         continue;
       }
@@ -172,6 +213,56 @@ class ProjectContextResolver {
 
     candidates.sort((a, b) => b.score.compareTo(a.score));
     return candidates.take(topK.clamp(1, 8)).toList();
+  }
+
+  Future<_HybridContext?> _buildHybridContext({
+    required _ChunkIndex index,
+    required ProjectEmbeddingClient embeddingClient,
+    required String embeddingModel,
+  }) async {
+    try {
+      final vectors = await embeddingClient.embedTexts(
+        texts: index.chunks.map((e) => e.text).toList(growable: false),
+        model: embeddingModel,
+      );
+      if (vectors.length != index.chunks.length) {
+        return null;
+      }
+      return _HybridContext(
+        embeddingClient: embeddingClient,
+        embeddingModel: embeddingModel,
+        chunkEmbeddings: vectors,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<double>> _vectorScores({
+    required _HybridContext? hybrid,
+    required String query,
+    required int chunkCount,
+  }) async {
+    if (hybrid == null) {
+      return List<double>.filled(chunkCount, 0);
+    }
+    try {
+      final queryVectors = await hybrid.embeddingClient.embedTexts(
+        texts: [query],
+        model: hybrid.embeddingModel,
+      );
+      if (queryVectors.isEmpty) {
+        return List<double>.filled(chunkCount, 0);
+      }
+      final qv = queryVectors.first;
+      final out = List<double>.filled(chunkCount, 0);
+      for (var i = 0; i < chunkCount; i++) {
+        out[i] = _cosine(qv, hybrid.chunkEmbeddings[i]);
+      }
+      return out;
+    } catch (_) {
+      return List<double>.filled(chunkCount, 0);
+    }
   }
 
   _ChunkIndex _buildChunkIndex({
@@ -299,6 +390,38 @@ class ProjectContextResolver {
     return normalized.clamp(0, 1).toDouble();
   }
 
+  double _combinedScore({
+    required double lexicalScore,
+    required double vectorScore,
+  }) {
+    final lexicalNorm = lexicalScore <= 0
+        ? 0
+        : (lexicalScore / (1 + lexicalScore));
+    final vectorNorm = ((vectorScore + 1) / 2).clamp(0, 1).toDouble();
+    return (lexicalNorm * 0.65) + (vectorNorm * 0.35);
+  }
+
+  double _cosine(List<double> a, List<double> b) {
+    final len = math.min(a.length, b.length);
+    if (len == 0) {
+      return 0;
+    }
+    var dot = 0.0;
+    var na = 0.0;
+    var nb = 0.0;
+    for (var i = 0; i < len; i++) {
+      final av = a[i];
+      final bv = b[i];
+      dot += av * bv;
+      na += av * av;
+      nb += bv * bv;
+    }
+    if (na <= 0 || nb <= 0) {
+      return 0;
+    }
+    return dot / (math.sqrt(na) * math.sqrt(nb));
+  }
+
   List<String> _keywordsFrom(String snippet) {
     final tokens = _tokenCounts(snippet).keys.toList();
     tokens.sort((a, b) => b.length.compareTo(a.length));
@@ -349,6 +472,18 @@ class _ChunkIndex {
   final List<_ChunkEntry> chunks;
   final Map<String, int> docFreq;
   final double avgChunkLength;
+}
+
+class _HybridContext {
+  const _HybridContext({
+    required this.embeddingClient,
+    required this.embeddingModel,
+    required this.chunkEmbeddings,
+  });
+
+  final ProjectEmbeddingClient embeddingClient;
+  final String embeddingModel;
+  final List<List<double>> chunkEmbeddings;
 }
 
 const Set<String> _stopwords = {
