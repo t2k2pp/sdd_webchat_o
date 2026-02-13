@@ -1,5 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import 'project_embedding_client.dart';
 import '../../projects/domain/project.dart';
@@ -37,6 +41,7 @@ class ProjectContextResolver {
     final hybrid = useHybrid
         ? await _buildHybridContext(
             index: index,
+            project: project,
             embeddingClient: embeddingClient,
             embeddingModel: model,
           )
@@ -217,9 +222,26 @@ class ProjectContextResolver {
 
   Future<_HybridContext?> _buildHybridContext({
     required _ChunkIndex index,
+    required Project project,
     required ProjectEmbeddingClient embeddingClient,
     required String embeddingModel,
   }) async {
+    final chunkHashes = index.chunks
+        .map((e) => _stableHash('${e.source}::${e.text}'))
+        .toList(growable: false);
+    final cached = await _loadEmbeddingCache(
+      projectId: project.id,
+      embeddingModel: embeddingModel,
+      chunkSize: project.ragChunkSize,
+      chunkHashes: chunkHashes,
+    );
+    if (cached != null) {
+      return _HybridContext(
+        embeddingClient: embeddingClient,
+        embeddingModel: embeddingModel,
+        chunkEmbeddings: cached,
+      );
+    }
     try {
       final vectors = await embeddingClient.embedTexts(
         texts: index.chunks.map((e) => e.text).toList(growable: false),
@@ -228,6 +250,13 @@ class ProjectContextResolver {
       if (vectors.length != index.chunks.length) {
         return null;
       }
+      await _saveEmbeddingCache(
+        projectId: project.id,
+        embeddingModel: embeddingModel,
+        chunkSize: project.ragChunkSize,
+        chunkHashes: chunkHashes,
+        embeddings: vectors,
+      );
       return _HybridContext(
         embeddingClient: embeddingClient,
         embeddingModel: embeddingModel,
@@ -537,3 +566,86 @@ const Set<String> _stopwords = {
   'より',
   'について',
 };
+Future<List<List<double>>?> _loadEmbeddingCache({
+  required String projectId,
+  required String embeddingModel,
+  required int chunkSize,
+  required List<int> chunkHashes,
+}) async {
+  try {
+    final file = await _cacheFile(projectId);
+    if (!await file.exists()) {
+      return null;
+    }
+    final raw = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    if ((raw['embeddingModel'] as String? ?? '') != embeddingModel) {
+      return null;
+    }
+    if ((raw['chunkSize'] as num?)?.toInt() != chunkSize) {
+      return null;
+    }
+    final hashRows = (raw['chunkHashes'] as List<dynamic>? ?? const [])
+        .map((e) => (e as num?)?.toInt() ?? -1)
+        .toList(growable: false);
+    if (hashRows.length != chunkHashes.length) {
+      return null;
+    }
+    for (var i = 0; i < chunkHashes.length; i++) {
+      if (hashRows[i] != chunkHashes[i]) {
+        return null;
+      }
+    }
+    final embRows = raw['embeddings'] as List<dynamic>? ?? const [];
+    if (embRows.length != chunkHashes.length) {
+      return null;
+    }
+    return embRows
+        .map(
+          (row) => (row as List<dynamic>)
+              .map((v) => (v as num?)?.toDouble() ?? 0)
+              .toList(growable: false),
+        )
+        .toList(growable: false);
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> _saveEmbeddingCache({
+  required String projectId,
+  required String embeddingModel,
+  required int chunkSize,
+  required List<int> chunkHashes,
+  required List<List<double>> embeddings,
+}) async {
+  try {
+    final file = await _cacheFile(projectId);
+    final body = <String, dynamic>{
+      'projectId': projectId,
+      'embeddingModel': embeddingModel,
+      'chunkSize': chunkSize,
+      'chunkHashes': chunkHashes,
+      'embeddings': embeddings,
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
+    await file.writeAsString(jsonEncode(body), flush: true);
+  } catch (_) {}
+}
+
+Future<File> _cacheFile(String projectId) async {
+  final dir = await getApplicationDocumentsDirectory();
+  final cacheDir = Directory(p.join(dir.path, 'project_embedding_cache'));
+  if (!await cacheDir.exists()) {
+    await cacheDir.create(recursive: true);
+  }
+  return File(p.join(cacheDir.path, '$projectId.json'));
+}
+
+int _stableHash(String text) {
+  var hash = 0x811C9DC5;
+  for (final code in text.codeUnits) {
+    hash ^= code;
+    hash = (hash * 0x01000193) & 0x7fffffff;
+  }
+  return hash;
+}
