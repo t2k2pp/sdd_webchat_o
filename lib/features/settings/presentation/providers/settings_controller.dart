@@ -94,6 +94,25 @@ class SettingsController extends AsyncNotifier<AppSettings> {
     await saveSettings(current.copyWith(systemPrompt: prompt));
   }
 
+  Future<void> updateTtsSettings({
+    required bool enabled,
+    required String language,
+    required double speechRate,
+    required double volume,
+    required double pitch,
+  }) async {
+    final current = state.value ?? const AppSettings();
+    await saveSettings(
+      current.copyWith(
+        ttsEnabled: enabled,
+        ttsLanguage: language,
+        ttsSpeechRate: speechRate,
+        ttsVolume: volume,
+        ttsPitch: pitch,
+      ),
+    );
+  }
+
   Future<void> updateEndpoint(ModelEndpoint endpoint) async {
     final current = state.value ?? const AppSettings();
     final nextEndpoints = current.modelEndpoints.map((e) {

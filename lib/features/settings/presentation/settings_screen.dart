@@ -58,6 +58,23 @@ class SettingsScreen extends ConsumerWidget {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.record_voice_over_outlined),
+              title: const Text('Speech'),
+              subtitle: Text(
+                'enabled=${settings.ttsEnabled} / ${settings.ttsLanguage} / '
+                'rate=${settings.ttsSpeechRate.toStringAsFixed(2)} / '
+                'pitch=${settings.ttsPitch.toStringAsFixed(2)}',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const _SpeechSettingsPage(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.hub_outlined),
               title: const Text('Model Endpoints'),
               subtitle: Text(
@@ -211,6 +228,141 @@ class _SystemPromptSettingsPage extends ConsumerWidget {
                 await ref
                     .read(settingsControllerProvider.notifier)
                     .updateSystemPrompt(value);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SpeechSettingsPage extends ConsumerWidget {
+  const _SpeechSettingsPage();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsControllerProvider).value;
+    if (settings == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Speech Settings')),
+      body: ListView(
+        children: [
+          SwitchListTile(
+            title: const Text('Enable TTS'),
+            subtitle: const Text('AI応答の読み上げを有効化'),
+            value: settings.ttsEnabled,
+            onChanged: (value) async {
+              await ref
+                  .read(settingsControllerProvider.notifier)
+                  .updateTtsSettings(
+                    enabled: value,
+                    language: settings.ttsLanguage,
+                    speechRate: settings.ttsSpeechRate,
+                    volume: settings.ttsVolume,
+                    pitch: settings.ttsPitch,
+                  );
+            },
+          ),
+          ListTile(
+            title: const Text('Language'),
+            subtitle: Text(settings.ttsLanguage),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final value = await _pushTextEditPage(
+                context,
+                title: 'TTS Language',
+                label: 'Language code',
+                initialValue: settings.ttsLanguage,
+              );
+              if (value != null && value.trim().isNotEmpty) {
+                await ref
+                    .read(settingsControllerProvider.notifier)
+                    .updateTtsSettings(
+                      enabled: settings.ttsEnabled,
+                      language: value.trim(),
+                      speechRate: settings.ttsSpeechRate,
+                      volume: settings.ttsVolume,
+                      pitch: settings.ttsPitch,
+                    );
+              }
+            },
+          ),
+          ListTile(
+            title: const Text('Speech Rate'),
+            subtitle: Text(settings.ttsSpeechRate.toStringAsFixed(2)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final value = await _pushTextEditPage(
+                context,
+                title: 'Speech Rate',
+                label: '0.0 - 1.0',
+                initialValue: settings.ttsSpeechRate.toString(),
+              );
+              final parsed = value == null ? null : double.tryParse(value);
+              if (parsed != null) {
+                await ref
+                    .read(settingsControllerProvider.notifier)
+                    .updateTtsSettings(
+                      enabled: settings.ttsEnabled,
+                      language: settings.ttsLanguage,
+                      speechRate: parsed.clamp(0.0, 1.0),
+                      volume: settings.ttsVolume,
+                      pitch: settings.ttsPitch,
+                    );
+              }
+            },
+          ),
+          ListTile(
+            title: const Text('Volume'),
+            subtitle: Text(settings.ttsVolume.toStringAsFixed(2)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final value = await _pushTextEditPage(
+                context,
+                title: 'Volume',
+                label: '0.0 - 1.0',
+                initialValue: settings.ttsVolume.toString(),
+              );
+              final parsed = value == null ? null : double.tryParse(value);
+              if (parsed != null) {
+                await ref
+                    .read(settingsControllerProvider.notifier)
+                    .updateTtsSettings(
+                      enabled: settings.ttsEnabled,
+                      language: settings.ttsLanguage,
+                      speechRate: settings.ttsSpeechRate,
+                      volume: parsed.clamp(0.0, 1.0),
+                      pitch: settings.ttsPitch,
+                    );
+              }
+            },
+          ),
+          ListTile(
+            title: const Text('Pitch'),
+            subtitle: Text(settings.ttsPitch.toStringAsFixed(2)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final value = await _pushTextEditPage(
+                context,
+                title: 'Pitch',
+                label: '0.5 - 2.0',
+                initialValue: settings.ttsPitch.toString(),
+              );
+              final parsed = value == null ? null : double.tryParse(value);
+              if (parsed != null) {
+                await ref
+                    .read(settingsControllerProvider.notifier)
+                    .updateTtsSettings(
+                      enabled: settings.ttsEnabled,
+                      language: settings.ttsLanguage,
+                      speechRate: settings.ttsSpeechRate,
+                      volume: settings.ttsVolume,
+                      pitch: parsed.clamp(0.5, 2.0),
+                    );
               }
             },
           ),

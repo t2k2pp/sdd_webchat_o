@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../app/widgets/app_drawer.dart';
+import '../../settings/domain/app_settings.dart';
 import '../../settings/domain/model_endpoint.dart';
 import '../../settings/presentation/providers/settings_controller.dart';
 import 'artifact_screen.dart';
@@ -22,6 +23,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final FlutterTts _tts = FlutterTts();
   int? _speakingAssistantIndex;
+  String _ttsSignature = '';
 
   @override
   void initState() {
@@ -81,6 +83,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     final chatState = ref.watch(chatControllerProvider);
     final settings = ref.watch(settingsControllerProvider).value;
+    if (settings != null) {
+      _applyTtsSettingsFromSettings(settings);
+    }
     final selectedEndpoint = settings?.selectedEndpoint;
     final endpoints = settings?.modelEndpoints ?? const <ModelEndpoint>[];
 
@@ -127,6 +132,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       return _AssistantMessage(
                         content: msg.content,
                         artifactHtml: msg.artifactHtml,
+                        ttsEnabled: settings?.ttsEnabled ?? true,
                         isSpeaking: _speakingAssistantIndex == index,
                         onToggleSpeak: () =>
                             _toggleSpeak(index: index, markdown: msg.content),
@@ -256,6 +262,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     required int index,
     required String markdown,
   }) async {
+    final settings = ref.read(settingsControllerProvider).value;
+    if (settings != null && !settings.ttsEnabled) {
+      return;
+    }
     if (_speakingAssistantIndex == index) {
       await _tts.stop();
       if (!mounted) {
@@ -279,6 +289,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _speakingAssistantIndex = index;
     });
     await _tts.speak(plain);
+  }
+
+  Future<void> _applyTtsSettingsFromSettings(AppSettings settings) async {
+    final signature =
+        '${settings.ttsEnabled}|${settings.ttsLanguage}|${settings.ttsSpeechRate}|'
+        '${settings.ttsVolume}|${settings.ttsPitch}';
+    if (signature == _ttsSignature) {
+      return;
+    }
+    _ttsSignature = signature;
+
+    if (!settings.ttsEnabled) {
+      await _tts.stop();
+      if (mounted && _speakingAssistantIndex != null) {
+        setState(() {
+          _speakingAssistantIndex = null;
+        });
+      }
+      return;
+    }
+
+    await _tts.setLanguage(settings.ttsLanguage);
+    await _tts.setSpeechRate(settings.ttsSpeechRate.clamp(0.0, 1.0));
+    await _tts.setVolume(settings.ttsVolume.clamp(0.0, 1.0));
+    await _tts.setPitch(settings.ttsPitch.clamp(0.5, 2.0));
   }
 
   String _markdownToPlainText(String markdown) {
@@ -364,12 +399,14 @@ class _AssistantMessage extends StatelessWidget {
   const _AssistantMessage({
     required this.content,
     required this.artifactHtml,
+    required this.ttsEnabled,
     required this.isSpeaking,
     required this.onToggleSpeak,
   });
 
   final String content;
   final String? artifactHtml;
+  final bool ttsEnabled;
   final bool isSpeaking;
   final VoidCallback onToggleSpeak;
 
@@ -392,7 +429,7 @@ class _AssistantMessage extends StatelessWidget {
                 child: IconButton(
                   padding: EdgeInsets.zero,
                   tooltip: isSpeaking ? '読み上げ停止' : '読み上げ',
-                  onPressed: onToggleSpeak,
+                  onPressed: ttsEnabled ? onToggleSpeak : null,
                   icon: Icon(
                     isSpeaking
                         ? Icons.stop_circle_outlined

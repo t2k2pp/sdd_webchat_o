@@ -9,6 +9,11 @@ class AppSettings {
     this.searchSafeSearch = 1,
     this.searxngBaseUrl = 'http://192.168.1.40:8080',
     this.systemPrompt = '',
+    this.ttsEnabled = true,
+    this.ttsLanguage = 'ja-JP',
+    this.ttsSpeechRate = 0.5,
+    this.ttsVolume = 1.0,
+    this.ttsPitch = 1.0,
     this.selectedEndpointId = 'ollama-local',
     this.modelEndpoints = const [
       ModelEndpoint(
@@ -42,6 +47,11 @@ class AppSettings {
   final int searchSafeSearch;
   final String searxngBaseUrl;
   final String systemPrompt;
+  final bool ttsEnabled;
+  final String ttsLanguage;
+  final double ttsSpeechRate;
+  final double ttsVolume;
+  final double ttsPitch;
   final String selectedEndpointId;
   final List<ModelEndpoint> modelEndpoints;
 
@@ -62,6 +72,11 @@ class AppSettings {
     int? searchSafeSearch,
     String? searxngBaseUrl,
     String? systemPrompt,
+    bool? ttsEnabled,
+    String? ttsLanguage,
+    double? ttsSpeechRate,
+    double? ttsVolume,
+    double? ttsPitch,
     String? selectedEndpointId,
     List<ModelEndpoint>? modelEndpoints,
   }) {
@@ -74,6 +89,11 @@ class AppSettings {
       searchSafeSearch: searchSafeSearch ?? this.searchSafeSearch,
       searxngBaseUrl: searxngBaseUrl ?? this.searxngBaseUrl,
       systemPrompt: systemPrompt ?? this.systemPrompt,
+      ttsEnabled: ttsEnabled ?? this.ttsEnabled,
+      ttsLanguage: ttsLanguage ?? this.ttsLanguage,
+      ttsSpeechRate: ttsSpeechRate ?? this.ttsSpeechRate,
+      ttsVolume: ttsVolume ?? this.ttsVolume,
+      ttsPitch: ttsPitch ?? this.ttsPitch,
       selectedEndpointId: selectedEndpointId ?? this.selectedEndpointId,
       modelEndpoints: modelEndpoints ?? this.modelEndpoints,
     );
@@ -88,6 +108,11 @@ class AppSettings {
       'searchSafeSearch': searchSafeSearch,
       'searxngBaseUrl': searxngBaseUrl,
       'systemPrompt': systemPrompt,
+      'ttsEnabled': ttsEnabled,
+      'ttsLanguage': ttsLanguage,
+      'ttsSpeechRate': ttsSpeechRate,
+      'ttsVolume': ttsVolume,
+      'ttsPitch': ttsPitch,
       'selectedEndpointId': selectedEndpointId,
       'modelEndpoints': modelEndpoints.map((e) => e.toJson()).toList(),
     };
@@ -110,6 +135,11 @@ class AppSettings {
       searxngBaseUrl:
           json['searxngBaseUrl'] as String? ?? 'http://192.168.1.40:8080',
       systemPrompt: json['systemPrompt'] as String? ?? '',
+      ttsEnabled: json['ttsEnabled'] as bool? ?? true,
+      ttsLanguage: json['ttsLanguage'] as String? ?? 'ja-JP',
+      ttsSpeechRate: (json['ttsSpeechRate'] as num?)?.toDouble() ?? 0.5,
+      ttsVolume: (json['ttsVolume'] as num?)?.toDouble() ?? 1.0,
+      ttsPitch: (json['ttsPitch'] as num?)?.toDouble() ?? 1.0,
       selectedEndpointId:
           json['selectedEndpointId'] as String? ??
           (endpoints.isNotEmpty ? endpoints.first.id : 'ollama-local'),

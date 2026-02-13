@@ -33,6 +33,7 @@
 - 設定画面のセクション分割
   - Search
   - System Prompt
+  - Speech (TTS)
   - Model Endpoints
 - 全画面編集UI（ポップアップ廃止）
 - モデル単位のトークン集計
