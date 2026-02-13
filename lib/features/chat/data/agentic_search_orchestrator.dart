@@ -27,6 +27,7 @@ class AgenticSearchOrchestrator {
     final originalQuestion = messages.isNotEmpty
         ? messages.last.content
         : 'Question';
+    final freshnessSensitive = _isFreshnessSensitive(originalQuestion);
     var query = originalQuestion;
     var bestAnswer = '';
     var bestConfidence = 0.0;
@@ -86,8 +87,13 @@ class AgenticSearchOrchestrator {
       }
 
       if (step.confidence >= settings.confidenceThreshold) {
+        final finalized = _finalizeAnswer(
+          answer: step.answer,
+          traces: traces,
+          freshnessSensitive: freshnessSensitive,
+        );
         return ChatCompletionResult(
-          content: _withSearchTrace(answer: step.answer, traces: traces),
+          content: finalized,
           inputTokens: totalInTokens,
           outputTokens: totalOutTokens,
         );
@@ -102,8 +108,13 @@ class AgenticSearchOrchestrator {
     final fallback = bestAnswer.isNotEmpty
         ? bestAnswer
         : '十分な確信を得られませんでした。質問を具体化して再試行してください。';
+    final finalized = _finalizeAnswer(
+      answer: fallback,
+      traces: traces,
+      freshnessSensitive: freshnessSensitive,
+    );
     return ChatCompletionResult(
-      content: _withSearchTrace(answer: fallback, traces: traces),
+      content: finalized,
       inputTokens: totalInTokens,
       outputTokens: totalOutTokens,
     );
@@ -244,6 +255,48 @@ answerには、可能な範囲で参照URLを末尾に箇条書きで含める�
       }
     }
     return '${answer.trim()}\n\n${lines.join('\n')}';
+  }
+
+  String _finalizeAnswer({
+    required String answer,
+    required List<_SearchTrace> traces,
+    required bool freshnessSensitive,
+  }) {
+    final hasUrlEvidence = traces.any((t) => t.urls.isNotEmpty);
+    if (freshnessSensitive && !hasUrlEvidence) {
+      const guarded =
+          '## 確認結果\n'
+          '- 未確認: 時系列依存の質問ですが、根拠URL付き検索結果を得られませんでした。\n'
+          '- SearXNG設定・検索語を調整して再実行してください。';
+      return _withSearchTrace(answer: guarded, traces: traces);
+    }
+    return _withSearchTrace(answer: answer, traces: traces);
+  }
+
+  bool _isFreshnessSensitive(String text) {
+    final t = text.toLowerCase();
+    const keys = [
+      'today',
+      'latest',
+      'current',
+      'news',
+      'recent',
+      '昨日',
+      '今日',
+      '明日',
+      '最新',
+      'ニュース',
+      '現在',
+      '直近',
+      '速報',
+      '日付',
+    ];
+    for (final key in keys) {
+      if (t.contains(key)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   _AgenticStep _parseStep(String text) {
