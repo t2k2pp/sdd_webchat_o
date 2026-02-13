@@ -45,6 +45,7 @@ class AgenticSearchOrchestrator {
       final bundle = await _search(query, settings);
       traces.add(
         _SearchTrace(
+          executedAt: DateTime.now(),
           query: query,
           hitCount: bundle.hitCount,
           urls: bundle.urls,
@@ -247,8 +248,11 @@ answerには、可能な範囲で参照URLを末尾に箇条書きで含める�
     lines.add('## Search Trace');
     for (var i = 0; i < traces.length; i++) {
       final t = traces[i];
+      final stamp =
+          '${t.executedAt.year}-${t.executedAt.month.toString().padLeft(2, '0')}-${t.executedAt.day.toString().padLeft(2, '0')} '
+          '${t.executedAt.hour.toString().padLeft(2, '0')}:${t.executedAt.minute.toString().padLeft(2, '0')}:${t.executedAt.second.toString().padLeft(2, '0')}';
       lines.add(
-        '- Step ${i + 1}: query="${t.query}" hits=${t.hitCount}${t.failed ? " (failed/weak)" : ""}',
+        '- Step ${i + 1}: [$stamp] query="${t.query}" hits=${t.hitCount}${t.failed ? " (failed/weak)" : ""}',
       );
       for (final url in t.urls.take(3)) {
         lines.add('  - $url');
@@ -348,12 +352,14 @@ class _SearchBundle {
 
 class _SearchTrace {
   const _SearchTrace({
+    required this.executedAt,
     required this.query,
     required this.hitCount,
     required this.urls,
     required this.failed,
   });
 
+  final DateTime executedAt;
   final String query;
   final int hitCount;
   final List<String> urls;
