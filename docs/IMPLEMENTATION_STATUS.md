@@ -29,6 +29,7 @@
 - AI応答は吹き出しを使わず全幅表示（先頭に🤖、将来アイコン用スロット確保）
 - AI応答行に読み上げボタンを追加（TTSで再生/停止）
 - SettingsでTTS設定を変更可能（有効/言語/速度/音量/ピッチ）
+- Speech SettingsでTTSテスト再生/停止が可能
 - Integrations機能（Skills/SubAgents/MCPレジストリ）を実装済み
 - 有効なSkills/SubAgent/MCP情報をチャット実行時に注入済み
 - MCP実行連携を実装済み（LLMのMCP JSON要求を検出し、HTTPブリッジへツール実行）

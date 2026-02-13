@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../app/widgets/app_drawer.dart';
 import '../../integrations/presentation/integrations_screen.dart';
@@ -237,11 +238,36 @@ class _SystemPromptSettingsPage extends ConsumerWidget {
   }
 }
 
-class _SpeechSettingsPage extends ConsumerWidget {
+class _SpeechSettingsPage extends ConsumerStatefulWidget {
   const _SpeechSettingsPage();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SpeechSettingsPage> createState() =>
+      _SpeechSettingsPageState();
+}
+
+class _SpeechSettingsPageState extends ConsumerState<_SpeechSettingsPage> {
+  final FlutterTts _tts = FlutterTts();
+  bool _testing = false;
+
+  @override
+  void dispose() {
+    _tts.stop();
+    super.dispose();
+  }
+
+  Future<void> _speakPreview(AppSettings settings) async {
+    await _tts.stop();
+    await _tts.setLanguage(settings.ttsLanguage);
+    await _tts.setSpeechRate(settings.ttsSpeechRate.clamp(0.0, 1.0));
+    await _tts.setVolume(settings.ttsVolume.clamp(0.0, 1.0));
+    await _tts.setPitch(settings.ttsPitch.clamp(0.5, 2.0));
+    await _tts.speak('これは音声合成のテストです。現在の設定で読み上げています。');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ref = this.ref;
     final settings = ref.watch(settingsControllerProvider).value;
     if (settings == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -365,6 +391,50 @@ class _SpeechSettingsPage extends ConsumerWidget {
                     );
               }
             },
+          ),
+          const Divider(height: 20),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: _testing
+                        ? null
+                        : () async {
+                            setState(() {
+                              _testing = true;
+                            });
+                            try {
+                              await _speakPreview(settings);
+                            } finally {
+                              if (mounted) {
+                                setState(() {
+                                  _testing = false;
+                                });
+                              }
+                            }
+                          },
+                    icon: const Icon(Icons.play_circle_outline),
+                    label: const Text('テスト再生'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      await _tts.stop();
+                      messenger.showSnackBar(
+                        const SnackBar(content: Text('読み上げを停止しました')),
+                      );
+                    },
+                    icon: const Icon(Icons.stop_circle_outlined),
+                    label: const Text('停止'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
