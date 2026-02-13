@@ -47,6 +47,7 @@ dependencies:
   webview_flutter: ^4.10.0
   archive: ^4.0.7
   flutter_markdown_plus: ^1.0.3
+  flutter_tts: ^4.2.3
 
 dev_dependencies:
   flutter_test:

@@ -27,6 +27,7 @@
 - Project添付検索モード切替を実装済み（RAG / Agentic Search）
 - HTML Artifact表示を実装済み（チャット内ボタンから全画面表示）
 - AI応答は吹き出しを使わず全幅表示（先頭に🤖、将来アイコン用スロット確保）
+- AI応答行に読み上げボタンを追加（TTSで再生/停止）
 - Integrations機能（Skills/SubAgents/MCPレジストリ）を実装済み
 - 有効なSkills/SubAgent/MCP情報をチャット実行時に注入済み
 - MCP実行連携を実装済み（LLMのMCP JSON要求を検出し、HTTPブリッジへツール実行）

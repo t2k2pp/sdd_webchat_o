@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../app/widgets/app_drawer.dart';
 import '../../settings/domain/model_endpoint.dart';
@@ -19,9 +20,41 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FlutterTts _tts = FlutterTts();
+  int? _speakingAssistantIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _initTts();
+  }
+
+  Future<void> _initTts() async {
+    await _tts.setLanguage('ja-JP');
+    await _tts.setSpeechRate(0.5);
+    await _tts.setVolume(1.0);
+    await _tts.setPitch(1.0);
+    _tts.setCompletionHandler(() {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _speakingAssistantIndex = null;
+      });
+    });
+    _tts.setErrorHandler((_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _speakingAssistantIndex = null;
+      });
+    });
+  }
 
   @override
   void dispose() {
+    _tts.stop();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -94,6 +127,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       return _AssistantMessage(
                         content: msg.content,
                         artifactHtml: msg.artifactHtml,
+                        isSpeaking: _speakingAssistantIndex == index,
+                        onToggleSpeak: () =>
+                            _toggleSpeak(index: index, markdown: msg.content),
                       );
                     },
                   ),
@@ -215,6 +251,45 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       },
     );
   }
+
+  Future<void> _toggleSpeak({
+    required int index,
+    required String markdown,
+  }) async {
+    if (_speakingAssistantIndex == index) {
+      await _tts.stop();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _speakingAssistantIndex = null;
+      });
+      return;
+    }
+
+    await _tts.stop();
+    final plain = _markdownToPlainText(markdown);
+    if (plain.trim().isEmpty) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _speakingAssistantIndex = index;
+    });
+    await _tts.speak(plain);
+  }
+
+  String _markdownToPlainText(String markdown) {
+    return markdown
+        .replaceAll(RegExp(r'```[\s\S]*?```'), ' ')
+        .replaceAll(RegExp(r'`([^`]*)`'), r'$1')
+        .replaceAll(RegExp(r'[*_>#-]'), ' ')
+        .replaceAll(RegExp(r'\[(.*?)\]\((.*?)\)'), r'$1')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
 }
 
 class _Composer extends StatelessWidget {
@@ -286,10 +361,17 @@ class _Composer extends StatelessWidget {
 }
 
 class _AssistantMessage extends StatelessWidget {
-  const _AssistantMessage({required this.content, required this.artifactHtml});
+  const _AssistantMessage({
+    required this.content,
+    required this.artifactHtml,
+    required this.isSpeaking,
+    required this.onToggleSpeak,
+  });
 
   final String content;
   final String? artifactHtml;
+  final bool isSpeaking;
+  final VoidCallback onToggleSpeak;
 
   @override
   Widget build(BuildContext context) {
@@ -301,10 +383,24 @@ class _AssistantMessage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: const [
-              Text('🤖', style: TextStyle(fontSize: 20)),
-              SizedBox(width: 8),
-              SizedBox(width: 24, height: 24),
+            children: [
+              const Text('🤖', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  tooltip: isSpeaking ? '読み上げ停止' : '読み上げ',
+                  onPressed: onToggleSpeak,
+                  icon: Icon(
+                    isSpeaking
+                        ? Icons.stop_circle_outlined
+                        : Icons.volume_up_outlined,
+                    size: 20,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
