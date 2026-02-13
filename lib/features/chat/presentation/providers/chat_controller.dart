@@ -392,6 +392,11 @@ class ChatController extends Notifier<ChatState> {
       'Do not claim lack of date access. Use this runtime date.',
       if (searxngEnabled)
         'Do not claim lack of web search. Search snippets are provided by the app when needed.',
+      'Response style: use Markdown.',
+      'Use headings (##) and bullet lists for structured answers.',
+      'For time-sensitive facts, include explicit dates and source references when available.',
+      'Do not assert events after current local date as confirmed facts.',
+      'If evidence is insufficient, explicitly state "未確認" or "確認できません".',
     ].join('\n');
   }
 

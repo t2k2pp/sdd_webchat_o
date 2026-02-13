@@ -60,6 +60,14 @@ class AgenticSearchOrchestrator {
       totalOutTokens += response.outputTokens;
 
       final step = _parseStep(response.content);
+      if (snippets.contains('(検索結果なし)') || snippets.contains('(検索失敗)')) {
+        return ChatCompletionResult(
+          content:
+              '## 確認結果\n- 未確認: 検索結果を取得できませんでした。\n- 必要に応じて検索語を具体化して再試行してください。',
+          inputTokens: totalInTokens,
+          outputTokens: totalOutTokens,
+        );
+      }
       if (step.answer.isNotEmpty && step.confidence >= bestConfidence) {
         bestConfidence = step.confidence;
         bestAnswer = step.answer;
@@ -103,6 +111,10 @@ class AgenticSearchOrchestrator {
 あなたは検索付きアシスタントです。以下の情報を使って回答してください。
 あなたはアプリ経由で最新Web検索結果を利用できます。利用できないとは言わないこと。
 今日の日付は $date です。
+回答は必ずMarkdown形式で、見出しと箇条書きを使って構造化すること。
+検索スニペットに根拠がない情報は断定しないこと。
+今日より未来の日付の出来事は、スニペットに明示根拠がある場合のみ記述すること。
+根拠が弱い場合は「未確認」または「確認できません」と明記すること。
 
 Question:
 $question
@@ -119,6 +131,7 @@ Iteration: $iteration/$maxIterations
 {"answer":"...", "confidence":0.0, "next_query":"..."}
 confidenceは0.0-1.0。次の検索が不要なら next_query は空文字。
 answerでは「Web検索できない」「日付がわからない」と言わないこと。
+answerには、可能な範囲で参照URLを末尾に箇条書きで含めること。
 ''';
   }
 
