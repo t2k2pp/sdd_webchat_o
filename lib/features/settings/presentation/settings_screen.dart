@@ -250,23 +250,14 @@ class _SpeechSettingsPageState extends ConsumerState<_SpeechSettingsPage> {
   final FlutterTts _tts = FlutterTts();
   bool _previewPlaying = false;
   bool _initialized = false;
+  bool _loadingLanguages = true;
 
   bool _enabled = true;
   String _language = 'ja-JP';
   double _speechRate = 0.5;
   double _volume = 1.0;
   double _pitch = 1.0;
-
-  static const List<String> _languages = [
-    'ja-JP',
-    'en-US',
-    'en-GB',
-    'zh-CN',
-    'ko-KR',
-    'fr-FR',
-    'de-DE',
-    'es-ES',
-  ];
+  List<String> _availableLanguages = const ['ja-JP'];
 
   @override
   void initState() {
@@ -295,6 +286,7 @@ class _SpeechSettingsPageState extends ConsumerState<_SpeechSettingsPage> {
         _previewPlaying = false;
       });
     });
+    _loadAvailableLanguages();
   }
 
   @override
@@ -355,6 +347,51 @@ class _SpeechSettingsPageState extends ConsumerState<_SpeechSettingsPage> {
         );
   }
 
+  Future<void> _loadAvailableLanguages() async {
+    try {
+      final raw = await _tts.getLanguages;
+      final parsed = <String>{};
+      if (raw is List) {
+        for (final item in raw) {
+          final normalized = _normalizeLanguageCode(item.toString());
+          if (normalized.isNotEmpty) {
+            parsed.add(normalized);
+          }
+        }
+      }
+      if (parsed.isEmpty) {
+        parsed.add('ja-JP');
+      }
+      final sorted = parsed.toList()..sort();
+      if (!sorted.contains(_language)) {
+        sorted.insert(0, _language);
+      }
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _availableLanguages = sorted;
+        _loadingLanguages = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _availableLanguages = const ['ja-JP', 'en-US'];
+        _loadingLanguages = false;
+      });
+    }
+  }
+
+  String _normalizeLanguageCode(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+    return trimmed.replaceAll('_', '-');
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsControllerProvider).value;
@@ -368,8 +405,9 @@ class _SpeechSettingsPageState extends ConsumerState<_SpeechSettingsPage> {
       _speechRate = settings.ttsSpeechRate;
       _volume = settings.ttsVolume;
       _pitch = settings.ttsPitch;
-      if (!_languages.contains(_language)) {
-        _language = _languages.first;
+      _language = _normalizeLanguageCode(_language);
+      if (!_availableLanguages.contains(_language)) {
+        _availableLanguages = [_language, ..._availableLanguages];
       }
     }
 
@@ -396,8 +434,9 @@ class _SpeechSettingsPageState extends ConsumerState<_SpeechSettingsPage> {
               decoration: const InputDecoration(
                 labelText: 'Language',
                 border: OutlineInputBorder(),
+                helperText: '端末で利用可能な音声言語',
               ),
-              items: _languages
+              items: _availableLanguages
                   .map(
                     (lang) => DropdownMenuItem<String>(
                       value: lang,
@@ -405,7 +444,7 @@ class _SpeechSettingsPageState extends ConsumerState<_SpeechSettingsPage> {
                     ),
                   )
                   .toList(),
-              onChanged: _enabled
+              onChanged: (_enabled && !_loadingLanguages)
                   ? (value) async {
                       if (value == null) {
                         return;

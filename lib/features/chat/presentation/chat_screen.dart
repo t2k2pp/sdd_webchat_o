@@ -310,7 +310,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return;
     }
 
-    await _tts.setLanguage(settings.ttsLanguage);
+    try {
+      await _tts.setLanguage(settings.ttsLanguage);
+    } catch (_) {
+      await _tts.setLanguage('ja-JP');
+    }
     await _tts.setSpeechRate(settings.ttsSpeechRate.clamp(0.0, 1.0));
     await _tts.setVolume(settings.ttsVolume.clamp(0.0, 1.0));
     await _tts.setPitch(settings.ttsPitch.clamp(0.5, 2.0));

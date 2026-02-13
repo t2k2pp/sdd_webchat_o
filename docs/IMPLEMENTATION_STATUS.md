@@ -31,6 +31,7 @@
 - SettingsでTTS設定を変更可能（有効/言語/速度/音量/ピッチ）
 - Speech SettingsはLanguageプルダウン + Rate/Volume/PitchスライダーUI
 - Speech Settingsのテスト再生は単一トグルボタン（再生/停止切替）
+- SpeechのLanguage候補は端末の利用可能言語一覧から自動取得
 - Integrations機能（Skills/SubAgents/MCPレジストリ）を実装済み
 - 有効なSkills/SubAgent/MCP情報をチャット実行時に注入済み
 - MCP実行連携を実装済み（LLMのMCP JSON要求を検出し、HTTPブリッジへツール実行）

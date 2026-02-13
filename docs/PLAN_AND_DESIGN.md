@@ -34,6 +34,7 @@
   - Search
   - System Prompt
   - Speech (TTS)
+    - 言語候補は端末一覧から動的取得
   - Model Endpoints
 - 全画面編集UI（ポップアップ廃止）
 - モデル単位のトークン集計
