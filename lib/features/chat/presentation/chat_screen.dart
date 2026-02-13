@@ -294,6 +294,7 @@ class _AssistantMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final split = _splitSearchTrace(content);
+    final traceStepCount = _countTraceSteps(split.trace);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Column(
@@ -323,6 +324,22 @@ class _AssistantMessage extends StatelessWidget {
           ),
           if (split.trace.isNotEmpty) ...[
             const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Chip(
+                  avatar: const Icon(Icons.travel_explore, size: 16),
+                  label: const Text('Web検索利用'),
+                  visualDensity: VisualDensity.compact,
+                ),
+                Chip(
+                  label: Text('Steps: $traceStepCount'),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
             ExpansionTile(
               tilePadding: EdgeInsets.zero,
               childrenPadding: const EdgeInsets.fromLTRB(0, 0, 0, 6),
@@ -397,4 +414,12 @@ class _AssistantMessage extends StatelessWidget {
   final body = markdown.substring(0, idx).trim();
   final trace = markdown.substring(idx + 1).trim();
   return (body: body.isEmpty ? markdown.trim() : body, trace: trace);
+}
+
+int _countTraceSteps(String traceMarkdown) {
+  if (traceMarkdown.trim().isEmpty) {
+    return 0;
+  }
+  final reg = RegExp(r'^\s*-\s*Step\s+\d+:', multiLine: true);
+  return reg.allMatches(traceMarkdown).length;
 }
