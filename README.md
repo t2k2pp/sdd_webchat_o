@@ -1,16 +1,41 @@
 # sdd_webchat_o
 
-A new Flutter project.
+A sophisticated Flutter-based chat application with Agentic Search capabilities, Multi-LLM support, and advanced context management.
+
+## Key Features
+
+### 🧠 Advanced AI & Search
+- **Multi-LLM Support**: Switch between Gemini, OpenAI, Claude, and local models.
+- **Agentic Search**: 
+  - Integrates with SearXNG for privacy-respecting web searches.
+  - **Context-Aware Queries**: Automatically generates search queries based on conversation history.
+  - **Conditional Execution**: Intelligently decides when to search vs. when to answer directly (e.g., skips search for greetings).
+  - **Freshness Guard**: Prevents hallucination on time-sensitive topics by enforcing search verification.
+
+### 📚 Knowledge Management
+- **Project-based Context**: Manage separate workspaces with specific prompts and attached files.
+- **RAG (Retrieval-Augmented Generation)**: 
+  - Hybrid search (Keyword + Vector) for attached documents.
+  - Local embedding caching for performance.
+
+### 🛠️ Developer & Power User Tools
+- **Traceability**: View detailed "Search Traces" to see exactly what queries were run and what results were found.
+- **Cost Tracking**: Monitor token usage and estimated costs per model.
+- **Privacy Focused**: API keys stored in Secure Storage; history stored locally in SQLite.
+- **Markdown Support**: Full Markdown rendering including code blocks and tables.
+- **Text-to-Speech**: Built-in TTS with configurable speed, pitch, and language.
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+1.  **Configure Settings**: 
+    - Set up your LLM API keys in the Settings menu.
+    - Configure your SearXNG instance URL if using web search features.
+2.  **Create a Project**: 
+    - Define a system prompt and attach relevant documents.
+3.  **Start Chatting**: 
+    - Toggle "Web Search" to enable agentic capabilities.
 
-A few resources to get you started if this is your first Flutter project:
+## Documentation
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- [Implementation Status](docs/IMPLEMENTATION_STATUS.md): Detailed feature tracking.
+- [Plan and Design](docs/PLAN_AND_DESIGN.md): Architecture and design decisions.
