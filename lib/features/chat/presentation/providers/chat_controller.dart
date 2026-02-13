@@ -109,6 +109,10 @@ class ChatController extends Notifier<ChatState> {
       final runtimeContext = _buildRuntimeContext(
         searxngEnabled: state.searxngEnabled,
       );
+      final freshnessGuard = _buildFreshnessGuard(
+        userInput: userInput.trim(),
+        searxngEnabled: state.searxngEnabled,
+      );
       final enabledSkills = await _listEnabledSkills();
       final enabledMcpServers = await _listEnabledMcpServers();
       if (isFirstTurn) {
@@ -126,6 +130,8 @@ class ChatController extends Notifier<ChatState> {
         if (integrationContext.trim().isNotEmpty)
           ChatMessage(role: 'system', content: integrationContext),
         ChatMessage(role: 'system', content: runtimeContext),
+        if (freshnessGuard.isNotEmpty)
+          ChatMessage(role: 'system', content: freshnessGuard),
         ...nextMessages,
       ];
       final completion = state.searxngEnabled
@@ -398,6 +404,56 @@ class ChatController extends Notifier<ChatState> {
       'Do not assert events after current local date as confirmed facts.',
       'If evidence is insufficient, explicitly state "未確認" or "確認できません".',
     ].join('\n');
+  }
+
+  String _buildFreshnessGuard({
+    required String userInput,
+    required bool searxngEnabled,
+  }) {
+    final sensitive = _isFreshnessSensitive(userInput);
+    if (!sensitive) {
+      return '';
+    }
+    if (searxngEnabled) {
+      return [
+        'Freshness Guard:',
+        '- This request appears time-sensitive (today/latest/news/date).',
+        '- Use retrieved search evidence and cite concrete dates.',
+        '- If sources conflict, present uncertainty explicitly.',
+      ].join('\n');
+    }
+    return [
+      'Freshness Guard:',
+      '- This request appears time-sensitive (today/latest/news/date).',
+      '- Web search is OFF, so do not fabricate recent facts.',
+      '- If data is not verifiable from available context, answer as 未確認 and ask to enable SearXNG.',
+    ].join('\n');
+  }
+
+  bool _isFreshnessSensitive(String text) {
+    final t = text.toLowerCase();
+    const keys = [
+      'today',
+      'latest',
+      'current',
+      'news',
+      'recent',
+      '昨日',
+      '今日',
+      '明日',
+      '最新',
+      'ニュース',
+      '現在',
+      '直近',
+      '速報',
+      '日付',
+    ];
+    for (final key in keys) {
+      if (t.contains(key)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<List<McpServerDefinition>> _listEnabledMcpServers() async {
