@@ -248,7 +248,54 @@ class _SpeechSettingsPage extends ConsumerStatefulWidget {
 
 class _SpeechSettingsPageState extends ConsumerState<_SpeechSettingsPage> {
   final FlutterTts _tts = FlutterTts();
-  bool _testing = false;
+  bool _previewPlaying = false;
+  bool _initialized = false;
+
+  bool _enabled = true;
+  String _language = 'ja-JP';
+  double _speechRate = 0.5;
+  double _volume = 1.0;
+  double _pitch = 1.0;
+
+  static const List<String> _languages = [
+    'ja-JP',
+    'en-US',
+    'en-GB',
+    'zh-CN',
+    'ko-KR',
+    'fr-FR',
+    'de-DE',
+    'es-ES',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _tts.setCompletionHandler(() {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _previewPlaying = false;
+      });
+    });
+    _tts.setCancelHandler(() {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _previewPlaying = false;
+      });
+    });
+    _tts.setErrorHandler((_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _previewPlaying = false;
+      });
+    });
+  }
 
   @override
   void dispose() {
@@ -256,21 +303,74 @@ class _SpeechSettingsPageState extends ConsumerState<_SpeechSettingsPage> {
     super.dispose();
   }
 
-  Future<void> _speakPreview(AppSettings settings) async {
+  Future<void> _speakPreview() async {
     await _tts.stop();
-    await _tts.setLanguage(settings.ttsLanguage);
-    await _tts.setSpeechRate(settings.ttsSpeechRate.clamp(0.0, 1.0));
-    await _tts.setVolume(settings.ttsVolume.clamp(0.0, 1.0));
-    await _tts.setPitch(settings.ttsPitch.clamp(0.5, 2.0));
+    await _tts.setLanguage(_language);
+    await _tts.setSpeechRate(_speechRate.clamp(0.0, 1.0));
+    await _tts.setVolume(_volume.clamp(0.0, 1.0));
+    await _tts.setPitch(_pitch.clamp(0.5, 2.0));
     await _tts.speak('これは音声合成のテストです。現在の設定で読み上げています。');
+  }
+
+  Future<void> _togglePreview() async {
+    if (_previewPlaying) {
+      final messenger = ScaffoldMessenger.of(context);
+      await _tts.stop();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _previewPlaying = false;
+      });
+      messenger.showSnackBar(const SnackBar(content: Text('読み上げを停止しました')));
+      return;
+    }
+    if (!_enabled) {
+      return;
+    }
+    setState(() {
+      _previewPlaying = true;
+    });
+    try {
+      await _speakPreview();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _previewPlaying = false;
+      });
+    }
+  }
+
+  Future<void> _saveCurrent() async {
+    await ref
+        .read(settingsControllerProvider.notifier)
+        .updateTtsSettings(
+          enabled: _enabled,
+          language: _language,
+          speechRate: _speechRate,
+          volume: _volume,
+          pitch: _pitch,
+        );
   }
 
   @override
   Widget build(BuildContext context) {
-    final ref = this.ref;
     final settings = ref.watch(settingsControllerProvider).value;
     if (settings == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (!_initialized) {
+      _initialized = true;
+      _enabled = settings.ttsEnabled;
+      _language = settings.ttsLanguage;
+      _speechRate = settings.ttsSpeechRate;
+      _volume = settings.ttsVolume;
+      _pitch = settings.ttsPitch;
+      if (!_languages.contains(_language)) {
+        _language = _languages.first;
+      }
     }
 
     return Scaffold(
@@ -280,161 +380,140 @@ class _SpeechSettingsPageState extends ConsumerState<_SpeechSettingsPage> {
           SwitchListTile(
             title: const Text('Enable TTS'),
             subtitle: const Text('AI応答の読み上げを有効化'),
-            value: settings.ttsEnabled,
+            value: _enabled,
             onChanged: (value) async {
-              await ref
-                  .read(settingsControllerProvider.notifier)
-                  .updateTtsSettings(
-                    enabled: value,
-                    language: settings.ttsLanguage,
-                    speechRate: settings.ttsSpeechRate,
-                    volume: settings.ttsVolume,
-                    pitch: settings.ttsPitch,
-                  );
+              setState(() {
+                _enabled = value;
+              });
+              await _saveCurrent();
             },
           ),
-          ListTile(
-            title: const Text('Language'),
-            subtitle: Text(settings.ttsLanguage),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              final value = await _pushTextEditPage(
-                context,
-                title: 'TTS Language',
-                label: 'Language code',
-                initialValue: settings.ttsLanguage,
-              );
-              if (value != null && value.trim().isNotEmpty) {
-                await ref
-                    .read(settingsControllerProvider.notifier)
-                    .updateTtsSettings(
-                      enabled: settings.ttsEnabled,
-                      language: value.trim(),
-                      speechRate: settings.ttsSpeechRate,
-                      volume: settings.ttsVolume,
-                      pitch: settings.ttsPitch,
-                    );
-              }
-            },
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: DropdownButtonFormField<String>(
+              initialValue: _language,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Language',
+                border: OutlineInputBorder(),
+              ),
+              items: _languages
+                  .map(
+                    (lang) => DropdownMenuItem<String>(
+                      value: lang,
+                      child: Text(lang),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _enabled
+                  ? (value) async {
+                      if (value == null) {
+                        return;
+                      }
+                      setState(() {
+                        _language = value;
+                      });
+                      await _saveCurrent();
+                    }
+                  : null,
+            ),
           ),
-          ListTile(
-            title: const Text('Speech Rate'),
-            subtitle: Text(settings.ttsSpeechRate.toStringAsFixed(2)),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              final value = await _pushTextEditPage(
-                context,
-                title: 'Speech Rate',
-                label: '0.0 - 1.0',
-                initialValue: settings.ttsSpeechRate.toString(),
-              );
-              final parsed = value == null ? null : double.tryParse(value);
-              if (parsed != null) {
-                await ref
-                    .read(settingsControllerProvider.notifier)
-                    .updateTtsSettings(
-                      enabled: settings.ttsEnabled,
-                      language: settings.ttsLanguage,
-                      speechRate: parsed.clamp(0.0, 1.0),
-                      volume: settings.ttsVolume,
-                      pitch: settings.ttsPitch,
-                    );
-              }
+          _SliderTile(
+            label: 'Speech Rate',
+            value: _speechRate,
+            min: 0.0,
+            max: 1.0,
+            enabled: _enabled,
+            onChanged: (v) {
+              setState(() {
+                _speechRate = v;
+              });
             },
+            onChangeEnd: (_) => _saveCurrent(),
           ),
-          ListTile(
-            title: const Text('Volume'),
-            subtitle: Text(settings.ttsVolume.toStringAsFixed(2)),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              final value = await _pushTextEditPage(
-                context,
-                title: 'Volume',
-                label: '0.0 - 1.0',
-                initialValue: settings.ttsVolume.toString(),
-              );
-              final parsed = value == null ? null : double.tryParse(value);
-              if (parsed != null) {
-                await ref
-                    .read(settingsControllerProvider.notifier)
-                    .updateTtsSettings(
-                      enabled: settings.ttsEnabled,
-                      language: settings.ttsLanguage,
-                      speechRate: settings.ttsSpeechRate,
-                      volume: parsed.clamp(0.0, 1.0),
-                      pitch: settings.ttsPitch,
-                    );
-              }
+          _SliderTile(
+            label: 'Volume',
+            value: _volume,
+            min: 0.0,
+            max: 1.0,
+            enabled: _enabled,
+            onChanged: (v) {
+              setState(() {
+                _volume = v;
+              });
             },
+            onChangeEnd: (_) => _saveCurrent(),
           ),
-          ListTile(
-            title: const Text('Pitch'),
-            subtitle: Text(settings.ttsPitch.toStringAsFixed(2)),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              final value = await _pushTextEditPage(
-                context,
-                title: 'Pitch',
-                label: '0.5 - 2.0',
-                initialValue: settings.ttsPitch.toString(),
-              );
-              final parsed = value == null ? null : double.tryParse(value);
-              if (parsed != null) {
-                await ref
-                    .read(settingsControllerProvider.notifier)
-                    .updateTtsSettings(
-                      enabled: settings.ttsEnabled,
-                      language: settings.ttsLanguage,
-                      speechRate: settings.ttsSpeechRate,
-                      volume: settings.ttsVolume,
-                      pitch: parsed.clamp(0.5, 2.0),
-                    );
-              }
+          _SliderTile(
+            label: 'Pitch',
+            value: _pitch,
+            min: 0.5,
+            max: 2.0,
+            enabled: _enabled,
+            onChanged: (v) {
+              setState(() {
+                _pitch = v;
+              });
             },
+            onChangeEnd: (_) => _saveCurrent(),
           ),
           const Divider(height: 20),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: _testing
-                        ? null
-                        : () async {
-                            setState(() {
-                              _testing = true;
-                            });
-                            try {
-                              await _speakPreview(settings);
-                            } finally {
-                              if (mounted) {
-                                setState(() {
-                                  _testing = false;
-                                });
-                              }
-                            }
-                          },
-                    icon: const Icon(Icons.play_circle_outline),
-                    label: const Text('テスト再生'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      await _tts.stop();
-                      messenger.showSnackBar(
-                        const SnackBar(content: Text('読み上げを停止しました')),
-                      );
-                    },
-                    icon: const Icon(Icons.stop_circle_outlined),
-                    label: const Text('停止'),
-                  ),
-                ),
-              ],
+            child: FilledButton.tonalIcon(
+              onPressed: !_enabled && !_previewPlaying ? null : _togglePreview,
+              icon: Icon(
+                _previewPlaying
+                    ? Icons.stop_circle_outlined
+                    : Icons.play_circle_outline,
+              ),
+              label: Text(_previewPlaying ? '停止' : 'テスト再生'),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SliderTile extends StatelessWidget {
+  const _SliderTile({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.enabled,
+    required this.onChanged,
+    required this.onChangeEnd,
+  });
+
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final bool enabled;
+  final ValueChanged<double> onChanged;
+  final ValueChanged<double> onChangeEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text('$label: ${value.toStringAsFixed(2)}'),
+          ),
+          Slider(
+            value: value.clamp(min, max),
+            min: min,
+            max: max,
+            divisions: 20,
+            label: value.toStringAsFixed(2),
+            onChanged: enabled ? onChanged : null,
+            onChangeEnd: enabled ? onChangeEnd : null,
           ),
         ],
       ),
