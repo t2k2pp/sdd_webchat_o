@@ -292,6 +292,7 @@ class _AssistantMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final split = _splitSearchTrace(content);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Column(
@@ -306,7 +307,7 @@ class _AssistantMessage extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           MarkdownBody(
-            data: content,
+            data: split.body,
             selectable: true,
             styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
                 .copyWith(
@@ -319,6 +320,35 @@ class _AssistantMessage extends StatelessWidget {
                   ),
                 ),
           ),
+          if (split.trace.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.fromLTRB(0, 0, 0, 6),
+              leading: const Icon(Icons.travel_explore, size: 18),
+              title: const Text('Search Trace'),
+              subtitle: const Text('query / hits / urls'),
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: MarkdownBody(
+                    data: split.trace,
+                    selectable: true,
+                    styleSheet: MarkdownStyleSheet.fromTheme(
+                      Theme.of(context),
+                    ).copyWith(p: Theme.of(context).textTheme.bodySmall),
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (artifactHtml != null) ...[
             const SizedBox(height: 10),
             FilledButton.tonalIcon(
@@ -338,4 +368,15 @@ class _AssistantMessage extends StatelessWidget {
       ),
     );
   }
+}
+
+({String body, String trace}) _splitSearchTrace(String markdown) {
+  const marker = '\n## Search Trace';
+  final idx = markdown.indexOf(marker);
+  if (idx < 0) {
+    return (body: markdown, trace: '');
+  }
+  final body = markdown.substring(0, idx).trim();
+  final trace = markdown.substring(idx + 1).trim();
+  return (body: body.isEmpty ? markdown.trim() : body, trace: trace);
 }
