@@ -1,6 +1,6 @@
 # SDD WebChat モバイルアプリ 計画・設計
 
-最終更新: 2026-02-12
+最終更新: 2026-02-13
 対象: Android / iOS / iPadOS
 
 ## 1. ゴール
@@ -61,6 +61,7 @@
   - 事前添付ファイル登録
   - チャット時にプロジェクト文脈を注入
   - 添付検索モード切替（RAG / Agentic Search）
+  - 添付チャンク索引化 + BM25風ランキング
 - HTML Artifact表示
   - LLM応答からHTMLを抽出
   - ChatメッセージからArtifactを全画面表示

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import '../../projects/domain/project.dart';
 import '../../projects/domain/project_attachment.dart';
@@ -20,18 +21,22 @@ class ProjectContextResolver {
       return '';
     }
 
+    final chunkSize = project.ragChunkSize.clamp(300, 2400);
+    final index = _buildChunkIndex(docs: docs, chunkSize: chunkSize);
+    if (index.chunks.isEmpty) {
+      return '';
+    }
+
     return switch (project.knowledgeMode) {
       ProjectKnowledgeMode.rag => _resolveRag(
-        docs: docs,
+        index: index,
         query: q,
         topK: project.ragTopK,
-        chunkSize: project.ragChunkSize,
       ),
       ProjectKnowledgeMode.agenticSearch => _resolveAgentic(
-        docs: docs,
+        index: index,
         query: q,
         topK: project.ragTopK,
-        chunkSize: project.ragChunkSize,
         maxIterations: project.agenticMaxIterations,
         minConfidence: project.agenticConfidenceThreshold,
       ),
@@ -60,17 +65,11 @@ class ProjectContextResolver {
   }
 
   String _resolveRag({
-    required List<_Doc> docs,
+    required _ChunkIndex index,
     required String query,
     required int topK,
-    required int chunkSize,
   }) {
-    final results = _rankChunks(
-      docs: docs,
-      query: query,
-      topK: topK,
-      chunkSize: chunkSize,
-    );
+    final results = _rankChunks(index: index, query: query, topK: topK);
     if (results.isEmpty) {
       return '';
     }
@@ -84,10 +83,9 @@ class ProjectContextResolver {
   }
 
   String _resolveAgentic({
-    required List<_Doc> docs,
+    required _ChunkIndex index,
     required String query,
     required int topK,
-    required int chunkSize,
     required int maxIterations,
     required double minConfidence,
   }) {
@@ -96,14 +94,9 @@ class ProjectContextResolver {
     var bestConfidence = 0.0;
 
     for (var i = 0; i < maxIterations.clamp(1, 6); i++) {
-      final ranked = _rankChunks(
-        docs: docs,
-        query: currentQuery,
-        topK: topK,
-        chunkSize: chunkSize,
-      );
+      final ranked = _rankChunks(index: index, query: currentQuery, topK: topK);
       if (ranked.isNotEmpty) {
-        final confidence = ranked.first.score.clamp(0, 1).toDouble();
+        final confidence = _scoreToConfidence(ranked.first.score);
         if (confidence > bestConfidence) {
           best = ranked;
           bestConfidence = confidence;
@@ -155,34 +148,68 @@ class ProjectContextResolver {
   }
 
   List<_RankedChunk> _rankChunks({
-    required List<_Doc> docs,
+    required _ChunkIndex index,
     required String query,
     required int topK,
-    required int chunkSize,
   }) {
-    final queryTokens = _tokens(query);
-    if (queryTokens.isEmpty) {
+    final queryTerms = _tokenCounts(query);
+    if (queryTerms.isEmpty) {
       return const [];
     }
     final candidates = <_RankedChunk>[];
-    for (final doc in docs) {
-      final chunks = _chunkText(doc.text, chunkSize.clamp(300, 2400));
-      for (final chunk in chunks) {
-        final score = _score(queryTokens, chunk);
-        if (score <= 0) {
-          continue;
-        }
-        final snippet = chunk.length > 320
-            ? '${chunk.substring(0, 320)}...'
-            : chunk;
-        candidates.add(
-          _RankedChunk(source: doc.name, snippet: snippet, score: score),
-        );
+    for (final chunk in index.chunks) {
+      final score = _score(queryTerms, chunk, index);
+      if (score <= 0) {
+        continue;
       }
+      final snippet = chunk.text.length > 320
+          ? '${chunk.text.substring(0, 320)}...'
+          : chunk.text;
+      candidates.add(
+        _RankedChunk(source: chunk.source, snippet: snippet, score: score),
+      );
     }
 
     candidates.sort((a, b) => b.score.compareTo(a.score));
     return candidates.take(topK.clamp(1, 8)).toList();
+  }
+
+  _ChunkIndex _buildChunkIndex({
+    required List<_Doc> docs,
+    required int chunkSize,
+  }) {
+    final chunks = <_ChunkEntry>[];
+    for (final doc in docs) {
+      final slices = _chunkText(doc.text, chunkSize);
+      for (final slice in slices) {
+        final tokenFreq = _tokenCounts(slice);
+        if (tokenFreq.isEmpty) {
+          continue;
+        }
+        chunks.add(
+          _ChunkEntry(
+            source: doc.name,
+            text: slice,
+            tokenFreq: tokenFreq,
+            tokenCount: tokenFreq.values.fold(0, (a, b) => a + b),
+          ),
+        );
+      }
+    }
+
+    if (chunks.isEmpty) {
+      return const _ChunkIndex(chunks: [], docFreq: {}, avgChunkLength: 1);
+    }
+    final df = <String, int>{};
+    var totalLen = 0;
+    for (final chunk in chunks) {
+      totalLen += chunk.tokenCount;
+      for (final token in chunk.tokenFreq.keys) {
+        df.update(token, (v) => v + 1, ifAbsent: () => 1);
+      }
+    }
+    final avgLen = totalLen / chunks.length;
+    return _ChunkIndex(chunks: chunks, docFreq: df, avgChunkLength: avgLen);
   }
 
   List<String> _chunkText(String text, int chunkSize) {
@@ -204,30 +231,76 @@ class ProjectContextResolver {
     return out;
   }
 
-  Set<String> _tokens(String text) {
-    return text
-        .toLowerCase()
-        .split(RegExp(r'[^a-z0-9_\u3040-\u30ff\u4e00-\u9faf]+'))
-        .where((e) => e.trim().length >= 2)
-        .map((e) => e.trim())
-        .toSet();
+  Map<String, int> _tokenCounts(String text) {
+    final out = <String, int>{};
+    for (final token
+        in text
+            .toLowerCase()
+            .split(RegExp(r'[^a-z0-9_\u3040-\u30ff\u4e00-\u9faf]+'))
+            .map((e) => e.trim())
+            .where((e) => e.length >= 2)) {
+      if (_stopwords.contains(token)) {
+        continue;
+      }
+      out.update(token, (v) => v + 1, ifAbsent: () => 1);
+    }
+    return out;
   }
 
-  double _score(Set<String> queryTokens, String chunk) {
-    final chunkLower = chunk.toLowerCase();
-    var hit = 0;
-    for (final token in queryTokens) {
-      if (chunkLower.contains(token)) {
-        hit++;
-      }
+  double _score(
+    Map<String, int> queryTerms,
+    _ChunkEntry chunk,
+    _ChunkIndex index,
+  ) {
+    const k1 = 1.5;
+    const b = 0.75;
+    final n = index.chunks.length;
+    if (n == 0) {
+      return 0;
     }
-    final base = hit / queryTokens.length;
-    final phraseBoost = chunkLower.contains(queryTokens.join(' ')) ? 0.2 : 0;
-    return (base + phraseBoost).clamp(0, 1.2).toDouble();
+    final norm = k1 * (1 - b + b * (chunk.tokenCount / index.avgChunkLength));
+    var score = 0.0;
+    for (final entry in queryTerms.entries) {
+      final token = entry.key;
+      final qf = entry.value;
+      final tf = chunk.tokenFreq[token] ?? 0;
+      if (tf == 0) {
+        continue;
+      }
+      final df = index.docFreq[token] ?? 0;
+      final idf = _idf(total: n, freq: df);
+      final tfWeight = (tf * (k1 + 1)) / (tf + norm);
+      score += idf * tfWeight * qf;
+    }
+    final phraseBoost = _phraseBoost(queryTerms.keys, chunk.text);
+    return score + phraseBoost;
+  }
+
+  double _idf({required int total, required int freq}) {
+    final num = (total - freq + 0.5);
+    final den = (freq + 0.5);
+    final raw = num <= 0 ? 0.0 : (num / den);
+    return math.log((1 + raw).clamp(1, 1e9).toDouble());
+  }
+
+  double _phraseBoost(Iterable<String> queryTerms, String chunk) {
+    final query = queryTerms.join(' ').trim();
+    if (query.isEmpty) {
+      return 0;
+    }
+    return chunk.toLowerCase().contains(query.toLowerCase()) ? 0.4 : 0.0;
+  }
+
+  double _scoreToConfidence(double score) {
+    if (score <= 0) {
+      return 0;
+    }
+    final normalized = 1 - (1 / (1 + score));
+    return normalized.clamp(0, 1).toDouble();
   }
 
   List<String> _keywordsFrom(String snippet) {
-    final tokens = _tokens(snippet).toList();
+    final tokens = _tokenCounts(snippet).keys.toList();
     tokens.sort((a, b) => b.length.compareTo(a.length));
     return tokens.take(6).toList();
   }
@@ -251,3 +324,81 @@ class _RankedChunk {
   final String snippet;
   final double score;
 }
+
+class _ChunkEntry {
+  const _ChunkEntry({
+    required this.source,
+    required this.text,
+    required this.tokenFreq,
+    required this.tokenCount,
+  });
+
+  final String source;
+  final String text;
+  final Map<String, int> tokenFreq;
+  final int tokenCount;
+}
+
+class _ChunkIndex {
+  const _ChunkIndex({
+    required this.chunks,
+    required this.docFreq,
+    required this.avgChunkLength,
+  });
+
+  final List<_ChunkEntry> chunks;
+  final Map<String, int> docFreq;
+  final double avgChunkLength;
+}
+
+const Set<String> _stopwords = {
+  'the',
+  'and',
+  'for',
+  'with',
+  'from',
+  'that',
+  'this',
+  'are',
+  'was',
+  'were',
+  'have',
+  'has',
+  'had',
+  'will',
+  'shall',
+  'can',
+  'could',
+  'would',
+  'your',
+  'you',
+  'our',
+  'about',
+  'into',
+  'onto',
+  'http',
+  'https',
+  'www',
+  'com',
+  'org',
+  'net',
+  'です',
+  'ます',
+  'した',
+  'して',
+  'する',
+  'いる',
+  'ある',
+  'ない',
+  'こと',
+  'ため',
+  'よう',
+  'これ',
+  'それ',
+  'また',
+  'など',
+  'から',
+  'まで',
+  'より',
+  'について',
+};
