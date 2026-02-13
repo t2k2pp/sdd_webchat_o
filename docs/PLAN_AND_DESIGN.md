@@ -47,6 +47,7 @@
   - `app_settings.json` への保存
   - API KeyのSecure Storage保存（平文ファイルに非保持）
 - Agentic Search反復実行（SearXNG検索 + 確信値判定 + 次クエリ反復）
+- Agentic Searchの実行トレース表示（query/hits/urls）
 - 会話履歴のローカル永続化（SQLite、旧JSONから自動移行）
 - 履歴のコピー / エクスポート(Markdown) / 共有
 - 履歴から会話を再ロードしてチャット再開

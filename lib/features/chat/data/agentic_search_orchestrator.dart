@@ -33,6 +33,7 @@ class AgenticSearchOrchestrator {
     var totalInTokens = 0;
     var totalOutTokens = 0;
     final seenQueries = <String>{};
+    final traces = <_SearchTrace>[];
 
     for (var i = 0; i < settings.maxSearchIterations; i++) {
       if (seenQueries.contains(query)) {
@@ -40,11 +41,19 @@ class AgenticSearchOrchestrator {
       }
       seenQueries.add(query);
 
-      final snippets = await _search(query, settings);
+      final bundle = await _search(query, settings);
+      traces.add(
+        _SearchTrace(
+          query: query,
+          hitCount: bundle.hitCount,
+          urls: bundle.urls,
+          failed: bundle.failed,
+        ),
+      );
       final prompt = _buildAgenticPrompt(
         question: originalQuestion,
         query: query,
-        snippets: snippets,
+        snippets: bundle.snippets,
         iteration: i + 1,
         maxIterations: settings.maxSearchIterations,
       );
@@ -60,10 +69,13 @@ class AgenticSearchOrchestrator {
       totalOutTokens += response.outputTokens;
 
       final step = _parseStep(response.content);
-      if (snippets.contains('(検索結果なし)') || snippets.contains('(検索失敗)')) {
+      if (bundle.failed) {
         return ChatCompletionResult(
-          content:
-              '## 確認結果\n- 未確認: 検索結果を取得できませんでした。\n- 必要に応じて検索語を具体化して再試行してください。',
+          content: _withSearchTrace(
+            answer:
+                '## 確認結果\n- 未確認: 検索結果を取得できませんでした。\n- 必要に応じて検索語を具体化して再試行してください。',
+            traces: traces,
+          ),
           inputTokens: totalInTokens,
           outputTokens: totalOutTokens,
         );
@@ -75,7 +87,7 @@ class AgenticSearchOrchestrator {
 
       if (step.confidence >= settings.confidenceThreshold) {
         return ChatCompletionResult(
-          content: step.answer,
+          content: _withSearchTrace(answer: step.answer, traces: traces),
           inputTokens: totalInTokens,
           outputTokens: totalOutTokens,
         );
@@ -91,7 +103,7 @@ class AgenticSearchOrchestrator {
         ? bestAnswer
         : '十分な確信を得られませんでした。質問を具体化して再試行してください。';
     return ChatCompletionResult(
-      content: fallback,
+      content: _withSearchTrace(answer: fallback, traces: traces),
       inputTokens: totalInTokens,
       outputTokens: totalOutTokens,
     );
@@ -135,7 +147,7 @@ answerには、可能な範囲で参照URLを末尾に箇条書きで含める�
 ''';
   }
 
-  Future<String> _search(String query, AppSettings settings) async {
+  Future<_SearchBundle> _search(String query, AppSettings settings) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '/search',
@@ -150,16 +162,31 @@ answerには、可能な範囲で参照URLを末尾に箇条書きで含める�
       final results = data['results'];
       if (results is List && results.isNotEmpty) {
         final lines = <String>[];
+        final urls = <String>[];
         for (final raw in results.take(5)) {
           if (raw is Map<String, dynamic>) {
             final title = raw['title'] as String? ?? '';
             final url = raw['url'] as String? ?? '';
             final content = raw['content'] as String? ?? '';
+            if (url.trim().isNotEmpty) {
+              urls.add(url.trim());
+            }
             lines.add('- $title\n  $url\n  $content');
           }
         }
-        return lines.join('\n');
+        return _SearchBundle(
+          snippets: lines.join('\n'),
+          hitCount: results.length,
+          urls: urls,
+          failed: false,
+        );
       }
+      return const _SearchBundle(
+        snippets: '(検索結果なし)',
+        hitCount: 0,
+        urls: [],
+        failed: true,
+      );
     } catch (_) {
       // fall through to html fallback
     }
@@ -174,13 +201,49 @@ answerには、可能な範囲で参照URLを末尾に箇条書きで含める�
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim();
       if (text.isEmpty) {
-        return '(検索結果なし)';
+        return const _SearchBundle(
+          snippets: '(検索結果なし)',
+          hitCount: 0,
+          urls: [],
+          failed: true,
+        );
       }
       final end = min(text.length, 1400);
-      return text.substring(0, end);
+      return _SearchBundle(
+        snippets: text.substring(0, end),
+        hitCount: 0,
+        urls: const [],
+        failed: false,
+      );
     } catch (_) {
-      return '(検索失敗)';
+      return const _SearchBundle(
+        snippets: '(検索失敗)',
+        hitCount: 0,
+        urls: [],
+        failed: true,
+      );
     }
+  }
+
+  String _withSearchTrace({
+    required String answer,
+    required List<_SearchTrace> traces,
+  }) {
+    if (traces.isEmpty) {
+      return answer;
+    }
+    final lines = <String>[];
+    lines.add('## Search Trace');
+    for (var i = 0; i < traces.length; i++) {
+      final t = traces[i];
+      lines.add(
+        '- Step ${i + 1}: query="${t.query}" hits=${t.hitCount}${t.failed ? " (failed/weak)" : ""}',
+      );
+      for (final url in t.urls.take(3)) {
+        lines.add('  - $url');
+      }
+    }
+    return '${answer.trim()}\n\n${lines.join('\n')}';
   }
 
   _AgenticStep _parseStep(String text) {
@@ -214,4 +277,32 @@ class _AgenticStep {
   final String answer;
   final double confidence;
   final String nextQuery;
+}
+
+class _SearchBundle {
+  const _SearchBundle({
+    required this.snippets,
+    required this.hitCount,
+    required this.urls,
+    required this.failed,
+  });
+
+  final String snippets;
+  final int hitCount;
+  final List<String> urls;
+  final bool failed;
+}
+
+class _SearchTrace {
+  const _SearchTrace({
+    required this.query,
+    required this.hitCount,
+    required this.urls,
+    required this.failed,
+  });
+
+  final String query;
+  final int hitCount;
+  final List<String> urls;
+  final bool failed;
 }
