@@ -28,6 +28,7 @@ class AgenticSearchOrchestrator {
     required List<ChatMessage> messages,
     required LlmProviderClient llmClient,
     required AppSettings settings,
+    void Function(String message)? onProgress,
   }) async {
     final originalQuestion = messages.isNotEmpty
         ? messages.last.content
@@ -35,6 +36,7 @@ class AgenticSearchOrchestrator {
     final freshnessSensitive = _isFreshnessSensitive(originalQuestion);
 
     // Generate context-aware initial query
+    onProgress?.call('検索クエリを作成中...');
     var query = await _generateInitialQuery(
       messages: messages,
       llmClient: llmClient,
@@ -43,6 +45,7 @@ class AgenticSearchOrchestrator {
 
     // If the orchestrator decides no search is needed, fallback to normal chat
     if (query == 'NO_SEARCH') {
+      onProgress?.call('検索不要と判定。回答を生成中...');
       final response = await llmClient.completeChat(
         messages: messages,
         enableSearch: false,
@@ -72,6 +75,7 @@ class AgenticSearchOrchestrator {
       }
       seenQueries.add(query);
 
+      onProgress?.call('検索中... (${i + 1}/${settings.maxSearchIterations})');
       final bundle = await _search(query, settings);
       traces.add(
         _SearchTrace(
@@ -90,6 +94,9 @@ class AgenticSearchOrchestrator {
         maxIterations: settings.maxSearchIterations,
       );
 
+      onProgress?.call(
+        '検索結果を分析中... (${i + 1}/${settings.maxSearchIterations})',
+      );
       final response = await llmClient.completeChat(
         messages: [
           ...messages,
@@ -118,6 +125,7 @@ class AgenticSearchOrchestrator {
       }
 
       if (step.confidence >= settings.confidenceThreshold) {
+        onProgress?.call('最終回答を作成中...');
         final finalized = _finalizeAnswer(
           answer: step.answer,
           traces: traces,
@@ -139,6 +147,7 @@ class AgenticSearchOrchestrator {
     final fallback = bestAnswer.isNotEmpty
         ? bestAnswer
         : '十分な確信を得られませんでした。質問を具体化して再試行してください。';
+    onProgress?.call('最終回答を作成中...');
     final finalized = _finalizeAnswer(
       answer: fallback,
       traces: traces,

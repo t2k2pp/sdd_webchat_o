@@ -35,6 +35,7 @@ class ChatState {
     this.messages = const [],
     this.isSending = false,
     this.searxngEnabled = false,
+    this.progressText = '',
   });
 
   final String conversationId;
@@ -42,6 +43,7 @@ class ChatState {
   final List<ChatMessage> messages;
   final bool isSending;
   final bool searxngEnabled;
+  final String progressText;
 
   ChatState copyWith({
     String? conversationId,
@@ -49,6 +51,7 @@ class ChatState {
     List<ChatMessage>? messages,
     bool? isSending,
     bool? searxngEnabled,
+    String? progressText,
   }) {
     return ChatState(
       conversationId: conversationId ?? this.conversationId,
@@ -56,6 +59,7 @@ class ChatState {
       messages: messages ?? this.messages,
       isSending: isSending ?? this.isSending,
       searxngEnabled: searxngEnabled ?? this.searxngEnabled,
+      progressText: progressText ?? this.progressText,
     );
   }
 }
@@ -97,20 +101,25 @@ class ChatController extends Notifier<ChatState> {
       messages: nextMessages,
       isSending: true,
       title: title,
+      progressText: '準備中...',
     );
 
     try {
+      _setProgress('設定と接続先を確認中...');
       final settings =
           ref.read(settingsControllerProvider).value ?? const AppSettings();
       final endpoint = settings.selectedEndpoint;
       if (endpoint == null) {
         throw StateError('No model endpoint configured');
       }
+      _setProgress('モデルに接続中...');
       final client = _resolveClient(endpoint);
+      _setProgress('Project文脈を構築中...');
       final projectContext = await _buildProjectContext(
         userInput.trim(),
         endpoint,
       );
+      _setProgress('Integration文脈を構築中...');
       final integrationContext = await _buildIntegrationContext();
       final runtimeContext = _buildRuntimeContext(
         searxngEnabled: state.searxngEnabled,
@@ -140,18 +149,24 @@ class ChatController extends Notifier<ChatState> {
           ChatMessage(role: 'system', content: freshnessGuard),
         ...nextMessages,
       ];
-      final completion = state.searxngEnabled
-          ? await AgenticSearchOrchestrator(
-              searxngBaseUrl: settings.searxngBaseUrl,
-            ).answerWithSearch(
-              messages: promptMessages,
-              llmClient: client,
-              settings: settings,
-            )
-          : await client.completeChat(
-              messages: promptMessages,
-              enableSearch: false,
-            );
+      late final ChatCompletionResult completion;
+      if (state.searxngEnabled) {
+        completion = await AgenticSearchOrchestrator(
+          searxngBaseUrl: settings.searxngBaseUrl,
+        ).answerWithSearch(
+          messages: promptMessages,
+          llmClient: client,
+          settings: settings,
+          onProgress: _setProgress,
+        );
+      } else {
+        _setProgress('回答を生成中...');
+        completion = await client.completeChat(
+          messages: promptMessages,
+          enableSearch: false,
+        );
+      }
+      _setProgress('追加ツール呼び出しを確認中...');
       final finalResult = await _resolveIntegrationCalls(
         initial: completion,
         client: client,
@@ -159,6 +174,7 @@ class ChatController extends Notifier<ChatState> {
         enabledSkills: enabledSkills,
         enabledServers: enabledMcpServers,
       );
+      _setProgress('使用量を記録中...');
       final inputTokens = finalResult.inputTokens > 0
           ? finalResult.inputTokens
           : _estimateTokens(promptMessages.map((e) => e.content).join('\n'));
@@ -192,6 +208,7 @@ class ChatController extends Notifier<ChatState> {
             ),
           );
       final artifact = _extractArtifact(finalResult.content);
+      _setProgress('表示を更新中...');
 
       state = state.copyWith(
         messages: [
@@ -203,6 +220,7 @@ class ChatController extends Notifier<ChatState> {
           ),
         ],
         isSending: false,
+        progressText: '',
       );
       await _persistCurrentConversation();
     } catch (error, stackTrace) {
@@ -216,9 +234,17 @@ class ChatController extends Notifier<ChatState> {
           ),
         ],
         isSending: false,
+        progressText: '',
       );
       await _persistCurrentConversation();
     }
+  }
+
+  void _setProgress(String text) {
+    if (!state.isSending) {
+      return;
+    }
+    state = state.copyWith(progressText: text);
   }
 
   Future<void> loadConversation(ConversationThread thread) async {
@@ -234,6 +260,7 @@ class ChatController extends Notifier<ChatState> {
       conversationId: _newConversationId(),
       title: 'New Conversation',
       messages: const [],
+      progressText: '',
     );
   }
 
@@ -613,6 +640,7 @@ class ChatController extends Notifier<ChatState> {
       searxngEnabled: defaults,
       messages: const [],
       isSending: false,
+      progressText: '',
     );
     await _restoreLatestConversation();
   }

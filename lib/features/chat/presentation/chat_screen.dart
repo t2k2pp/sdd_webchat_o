@@ -144,6 +144,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     },
                   ),
           ),
+          if (chatState.isSending)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    chatState.progressText.isEmpty
+                        ? '処理中...'
+                        : chatState.progressText,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 4),
+                  const LinearProgressIndicator(minHeight: 3),
+                ],
+              ),
+            ),
           SafeArea(
             top: false,
             child: Padding(
