@@ -883,6 +883,8 @@ class _SearchPolicyPage extends StatefulWidget {
 }
 
 class _SearchPolicyPageState extends State<_SearchPolicyPage> {
+  static const List<int> _iterationOptions = [1, 2, 3, 4, 5, 8, 12, 16, 24, 32];
+
   late int _maxIterations;
   late double _confidenceThreshold;
   late String _timeRange;
@@ -891,7 +893,7 @@ class _SearchPolicyPageState extends State<_SearchPolicyPage> {
   @override
   void initState() {
     super.initState();
-    _maxIterations = widget.settings.maxSearchIterations.clamp(1, 8);
+    _maxIterations = widget.settings.maxSearchIterations.clamp(1, 32);
     _confidenceThreshold = widget.settings.confidenceThreshold.clamp(0.0, 1.0);
     _timeRange = widget.settings.searchTimeRange;
     _safeSearch = widget.settings.searchSafeSearch;
@@ -926,15 +928,28 @@ class _SearchPolicyPageState extends State<_SearchPolicyPage> {
             title: const Text('Max Iterations'),
             subtitle: Text('$_maxIterations'),
           ),
-          Slider(
-            value: _maxIterations.toDouble(),
-            min: 1,
-            max: 8,
-            divisions: 7,
-            label: _maxIterations.toString(),
+          DropdownButtonFormField<int>(
+            initialValue: _iterationOptions.contains(_maxIterations)
+                ? _maxIterations
+                : 8,
+            decoration: const InputDecoration(
+              labelText: 'Max Iterations',
+              border: OutlineInputBorder(),
+            ),
+            items: _iterationOptions
+                .map(
+                  (v) => DropdownMenuItem<int>(
+                    value: v,
+                    child: Text(v.toString()),
+                  ),
+                )
+                .toList(),
             onChanged: (value) {
+              if (value == null) {
+                return;
+              }
               setState(() {
-                _maxIterations = value.round();
+                _maxIterations = value;
               });
             },
           ),
@@ -1012,12 +1027,24 @@ class _SearchHtmlCharsPage extends StatefulWidget {
 }
 
 class _SearchHtmlCharsPageState extends State<_SearchHtmlCharsPage> {
+  static const List<int> _charOptions = [
+    5000,
+    10000,
+    20000,
+    50000,
+    100000,
+    200000,
+    500000,
+    1000000,
+    2000000,
+  ];
+
   late int _value;
 
   @override
   void initState() {
     super.initState();
-    _value = widget.initialValue.clamp(500, 20000);
+    _value = widget.initialValue.clamp(5000, 2000000);
   }
 
   @override
@@ -1042,20 +1069,31 @@ class _SearchHtmlCharsPageState extends State<_SearchHtmlCharsPage> {
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 10),
-            Slider(
-              value: _value.toDouble(),
-              min: 500,
-              max: 20000,
-              divisions: 39,
-              label: _value.toString(),
+            DropdownButtonFormField<int>(
+              initialValue: _charOptions.contains(_value) ? _value : 50000,
+              decoration: const InputDecoration(
+                labelText: 'Preset',
+                border: OutlineInputBorder(),
+              ),
+              items: _charOptions
+                  .map(
+                    (v) => DropdownMenuItem<int>(
+                      value: v,
+                      child: Text(v.toString()),
+                    ),
+                  )
+                  .toList(),
               onChanged: (value) {
+                if (value == null) {
+                  return;
+                }
                 setState(() {
-                  final rounded = value.round();
-                  _value = (rounded ~/ 500) * 500;
+                  _value = value;
                 });
               },
             ),
-            const Text('Range: 500 - 20,000 (500 step)'),
+            const SizedBox(height: 8),
+            const Text('Range: 5,000 - 2,000,000'),
           ],
         ),
       ),

@@ -24,6 +24,7 @@
 - Agentic Conditional Searchを実装済み（検索要否をLLMが自律判定）
 - HTML検索結果の抽出文字数制限を設定化済み
 - Search設定のレンジ値（反復回数/確信閾値/HTML文字数）を選択UI化
+- Search上限を拡張（Max Iterations: 最大32、HTML抽出文字数: 最大2,000,000）
 - Usage Reports画面で日次/月次のトークン・コスト集計を表示
 - 履歴をローカル保存し、再読込・コピー・エクスポート・共有が可能
 - 履歴永続化をJSONからSQLiteへ移行済み（既存JSONの初回自動移行あり）

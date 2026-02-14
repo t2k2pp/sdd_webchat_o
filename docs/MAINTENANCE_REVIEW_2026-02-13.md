@@ -7,9 +7,9 @@
 
 ## 今回の改善
 - Search設定のレンジ値入力をテキスト中心から選択UIへ変更
-  - `Search Max HTML Chars`: スライダ化
+  - `Search Max HTML Chars`: プリセット選択化（最大2,000,000）
   - `Agentic Search Policy`
-    - `Max Iterations`: スライダ化
+    - `Max Iterations`: プリセット選択化（最大32）
     - `Confidence Threshold`: スライダ化
 - Model Endpoint編集
   - `Temperature`: スライダ化
