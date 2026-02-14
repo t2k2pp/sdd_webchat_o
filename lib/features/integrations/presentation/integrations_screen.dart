@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/logging/app_logger.dart';
 import '../domain/mcp_server_definition.dart';
 import '../domain/skill_definition.dart';
 import '../domain/subagent_definition.dart';
@@ -310,7 +311,19 @@ Future<SkillDefinition?> _showSkillDialog(BuildContext context) async {
                     try {
                       final res = await Dio().get<String>(url);
                       contentController.text = res.data ?? '';
-                    } catch (_) {}
+                    } catch (e, s) {
+                      AppLogger.warning(
+                        'Failed to fetch skill content from URL',
+                        e,
+                        s,
+                      );
+                      if (!context.mounted) {
+                        return;
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('URLからの取得に失敗しました')),
+                      );
+                    }
                   },
                   child: const Text('URLから取得'),
                 ),

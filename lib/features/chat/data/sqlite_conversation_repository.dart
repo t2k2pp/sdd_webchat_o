@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/logging/app_logger.dart';
 import '../domain/conversation_thread.dart';
 import 'conversation_repository.dart';
 
@@ -121,7 +122,8 @@ class SqliteConversationRepository implements ConversationRepository {
         );
         await legacyFile.rename(backupPath);
       }
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.warning('Failed to migrate legacy conversations.json', e, s);
       // Keep legacy data untouched if migration fails.
     }
   }

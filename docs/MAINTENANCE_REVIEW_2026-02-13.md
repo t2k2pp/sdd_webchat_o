@@ -17,12 +17,15 @@
   - `ProjectContextResolver` の添付読込/埋め込み/キャッシュ処理
   - `ChatController` のコンテキスト構築・設定読込・タイトル生成
   - `AgenticSearchOrchestrator` のステップJSON解析
+  - `SkillRequestParser` / `McpRequestParser` のJSON解析失敗
+  - IntegrationsのSkill URL取得失敗時ログ + UI通知
+  - `FileSettingsRepository` 読込失敗、SQLite旧履歴移行失敗
 
 ## 確認したこと
 - `Force Search` や追加の「開発者向けモード」は実装しない（ON/OFF + Autoを維持）
 - 検索可否の最終責務はユーザー設定と既存フローを尊重する
 
 ## 残タスク（優先順）
-1. 例外握りつぶしの残件を段階的に削減（Integrations/MCP/Skill周辺）
-2. エラー可視化方針の統一（ユーザー通知する失敗と内部ログのみの失敗を分離）
-3. 設定UIの継続改善（数値入力の適切なコントロールを定期監査）
+1. エラー可視化方針の統一（ユーザー通知する失敗と内部ログのみの失敗を分離）
+2. 設定UIの継続改善（数値入力の適切なコントロールを定期監査）
+3. 検索品質の観測強化（NO_SEARCH率、検索実行率、失敗率メトリクス）

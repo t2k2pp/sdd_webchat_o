@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../../core/logging/app_logger.dart';
 import '../domain/app_settings.dart';
 import '../domain/model_endpoint.dart';
 import '../domain/settings_repository.dart';
@@ -34,7 +35,8 @@ class FileSettingsRepository implements SettingsRepository {
       }
       settings = settings.copyWith(modelEndpoints: endpoints);
       return settings;
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.warning('Failed to load app settings; using defaults', e, s);
       return const AppSettings();
     }
   }

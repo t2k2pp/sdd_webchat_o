@@ -45,6 +45,7 @@
 - Artifact Security Mode切替を実装済み（Safe / Interactive / Trusted）
 - Artifact表示時にモード別CSP・JS許可・外部遷移制御を適用
 - 主要経路の例外握りつぶしを削減し、警告ログを追加
+- Integrations/MCP/Skill/Settings読込/履歴移行の失敗をログ可視化
 - Integrations機能（Skills/SubAgents/MCPレジストリ）を実装済み
 - 有効なSkills/SubAgent/MCP情報をチャット実行時に注入済み
 - MCP実行連携を実装済み（LLMのMCP JSON要求を検出し、HTTPブリッジへツール実行）

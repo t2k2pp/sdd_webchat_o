@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import '../../../core/logging/app_logger.dart';
 import '../../integrations/domain/mcp_server_definition.dart';
 
 class McpToolCallRequest {
@@ -70,7 +71,8 @@ class McpRequestParser {
         tool: tool,
         arguments: normalizedArgs,
       );
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.warning('Failed to parse MCP request JSON', e, s);
       return null;
     }
   }

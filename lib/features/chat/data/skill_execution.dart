@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../core/logging/app_logger.dart';
 import '../../integrations/domain/skill_definition.dart';
 
 class SkillCallRequest {
@@ -61,7 +62,8 @@ class SkillRequestParser {
         input: input,
         arguments: args is Map<String, dynamic> ? args : const {},
       );
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.warning('Failed to parse skill request JSON', e, s);
       return null;
     }
   }
