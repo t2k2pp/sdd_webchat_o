@@ -126,7 +126,8 @@ class McpHttpExecutor {
         success: true,
         output: output,
       );
-    } catch (error) {
+    } catch (error, stackTrace) {
+      AppLogger.warning('MCP HTTP call failed', error, stackTrace);
       return McpExecutionResult(
         server: server.name,
         tool: request.tool,

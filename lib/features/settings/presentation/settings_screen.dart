@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../app/widgets/app_drawer.dart';
+import '../../../core/logging/error_visibility.dart';
 import '../../integrations/presentation/integrations_screen.dart';
 import '../../usage/presentation/usage_reports_page.dart';
 import '../domain/app_settings.dart';
@@ -366,10 +367,17 @@ class _SpeechSettingsPageState extends ConsumerState<_SpeechSettingsPage> {
     });
     try {
       await _speakPreview();
-    } catch (_) {
+    } catch (e, s) {
       if (!mounted) {
         return;
       }
+      ErrorVisibility.notifyUser(
+        context,
+        userMessage: 'テスト読み上げに失敗しました',
+        logMessage: 'Failed to play speech preview',
+        error: e,
+        stackTrace: s,
+      );
       setState(() {
         _previewPlaying = false;
       });
@@ -414,7 +422,12 @@ class _SpeechSettingsPageState extends ConsumerState<_SpeechSettingsPage> {
         _availableLanguages = sorted;
         _loadingLanguages = false;
       });
-    } catch (_) {
+    } catch (e, s) {
+      ErrorVisibility.logOnly(
+        'Failed to load available TTS languages',
+        error: e,
+        stackTrace: s,
+      );
       if (!mounted) {
         return;
       }

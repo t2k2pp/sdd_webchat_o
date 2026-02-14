@@ -46,6 +46,7 @@
 - Artifact表示時にモード別CSP・JS許可・外部遷移制御を適用
 - 主要経路の例外握りつぶしを削減し、警告ログを追加
 - Integrations/MCP/Skill/Settings読込/履歴移行の失敗をログ可視化
+- エラー可視化ポリシーを文書化し、共通ヘルパーを導入
 - Integrations機能（Skills/SubAgents/MCPレジストリ）を実装済み
 - 有効なSkills/SubAgent/MCP情報をチャット実行時に注入済み
 - MCP実行連携を実装済み（LLMのMCP JSON要求を検出し、HTTPブリッジへツール実行）
@@ -75,3 +76,4 @@
 - MCPは現状 HTTP/HTTPS ブリッジ方式のみ実行（`command` にURLを設定）
 - Skill実行は現状「定義内容の要約・手順抽出」を返す軽量実行方式
 - 棚卸しレビュー: `docs/MAINTENANCE_REVIEW_2026-02-13.md`
+- エラー可視化方針: `docs/ERROR_VISIBILITY_POLICY.md`

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../app/widgets/app_drawer.dart';
+import '../../../core/logging/error_visibility.dart';
 import '../../settings/domain/app_settings.dart';
 import '../../settings/domain/model_endpoint.dart';
 import '../../settings/presentation/providers/settings_controller.dart';
@@ -315,7 +316,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     try {
       await _tts.setLanguage(settings.ttsLanguage);
-    } catch (_) {
+    } catch (e, s) {
+      ErrorVisibility.logOnly(
+        'Failed to apply configured TTS language, fallback to ja-JP',
+        error: e,
+        stackTrace: s,
+      );
       await _tts.setLanguage('ja-JP');
     }
     await _tts.setSpeechRate(settings.ttsSpeechRate.clamp(0.0, 1.0));
