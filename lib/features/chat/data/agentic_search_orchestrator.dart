@@ -423,7 +423,8 @@ ${history.map((m) => '${m.role}: ${m.content}').join('\n')}
         confidence: confidence.clamp(0.0, 1.0),
         nextQuery: nextQuery,
       );
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.warning('Failed to parse agentic step JSON', e, s);
       return _AgenticStep(answer: text.trim(), confidence: 0.3, nextQuery: '');
     }
   }

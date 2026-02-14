@@ -195,19 +195,14 @@ class _SearchSettingsPage extends ConsumerWidget {
             subtitle: Text('${settings.searchMaxFallbackCharacters} chars'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () async {
-              final value = await _pushTextEditPage(
+              final value = await _pushSearchHtmlCharsPage(
                 context,
-                title: 'Search Max HTML Chars',
-                label: 'Max Characters',
-                initialValue: settings.searchMaxFallbackCharacters.toString(),
+                settings.searchMaxFallbackCharacters,
               );
-              if (value != null && int.tryParse(value.trim()) != null) {
-                final intVal = int.parse(value.trim());
-                if (intVal > 0) {
-                  await ref
-                      .read(settingsControllerProvider.notifier)
-                      .updateSearchMaxFallbackCharacters(intVal);
-                }
+              if (value != null) {
+                await ref
+                    .read(settingsControllerProvider.notifier)
+                    .updateSearchMaxFallbackCharacters(value);
               }
             },
           ),
@@ -870,6 +865,14 @@ Future<_SearchPolicyDraft?> _pushSearchPolicyPage(
   );
 }
 
+Future<int?> _pushSearchHtmlCharsPage(BuildContext context, int current) {
+  return Navigator.of(context).push<int>(
+    MaterialPageRoute(
+      builder: (_) => _SearchHtmlCharsPage(initialValue: current),
+    ),
+  );
+}
+
 class _SearchPolicyPage extends StatefulWidget {
   const _SearchPolicyPage({required this.settings});
 
@@ -880,29 +883,18 @@ class _SearchPolicyPage extends StatefulWidget {
 }
 
 class _SearchPolicyPageState extends State<_SearchPolicyPage> {
-  late final TextEditingController _maxController;
-  late final TextEditingController _thresholdController;
+  late int _maxIterations;
+  late double _confidenceThreshold;
   late String _timeRange;
   late int _safeSearch;
 
   @override
   void initState() {
     super.initState();
-    _maxController = TextEditingController(
-      text: widget.settings.maxSearchIterations.toString(),
-    );
-    _thresholdController = TextEditingController(
-      text: widget.settings.confidenceThreshold.toString(),
-    );
+    _maxIterations = widget.settings.maxSearchIterations.clamp(1, 8);
+    _confidenceThreshold = widget.settings.confidenceThreshold.clamp(0.0, 1.0);
     _timeRange = widget.settings.searchTimeRange;
     _safeSearch = widget.settings.searchSafeSearch;
-  }
-
-  @override
-  void dispose() {
-    _maxController.dispose();
-    _thresholdController.dispose();
-    super.dispose();
   }
 
   @override
@@ -913,13 +905,10 @@ class _SearchPolicyPageState extends State<_SearchPolicyPage> {
         actions: [
           TextButton(
             onPressed: () {
-              final maxValue = int.tryParse(_maxController.text.trim()) ?? 3;
-              final threshold =
-                  double.tryParse(_thresholdController.text.trim()) ?? 0.75;
               Navigator.of(context).pop(
                 _SearchPolicyDraft(
-                  maxIterations: maxValue,
-                  confidenceThreshold: threshold.clamp(0.0, 1.0),
+                  maxIterations: _maxIterations,
+                  confidenceThreshold: _confidenceThreshold,
                   timeRange: _timeRange,
                   safeSearch: _safeSearch,
                 ),
@@ -932,24 +921,42 @@ class _SearchPolicyPageState extends State<_SearchPolicyPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          TextField(
-            controller: _maxController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Max Iterations',
-              border: OutlineInputBorder(),
-            ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Max Iterations'),
+            subtitle: Text('$_maxIterations'),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _thresholdController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Confidence Threshold (0.0-1.0)',
-              border: OutlineInputBorder(),
-            ),
+          Slider(
+            value: _maxIterations.toDouble(),
+            min: 1,
+            max: 8,
+            divisions: 7,
+            label: _maxIterations.toString(),
+            onChanged: (value) {
+              setState(() {
+                _maxIterations = value.round();
+              });
+            },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Confidence Threshold'),
+            subtitle: Text(_confidenceThreshold.toStringAsFixed(2)),
+          ),
+          Slider(
+            value: _confidenceThreshold,
+            min: 0.1,
+            max: 0.95,
+            divisions: 17,
+            label: _confidenceThreshold.toStringAsFixed(2),
+            onChanged: (value) {
+              setState(() {
+                _confidenceThreshold = value;
+              });
+            },
+          ),
+          const SizedBox(height: 8),
           DropdownButtonFormField<String>(
             initialValue: _timeRange,
             decoration: const InputDecoration(
@@ -995,6 +1002,67 @@ class _SearchPolicyPageState extends State<_SearchPolicyPage> {
   }
 }
 
+class _SearchHtmlCharsPage extends StatefulWidget {
+  const _SearchHtmlCharsPage({required this.initialValue});
+
+  final int initialValue;
+
+  @override
+  State<_SearchHtmlCharsPage> createState() => _SearchHtmlCharsPageState();
+}
+
+class _SearchHtmlCharsPageState extends State<_SearchHtmlCharsPage> {
+  late int _value;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.initialValue.clamp(500, 20000);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Search Max HTML Chars'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(_value),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'HTML fallback text length: $_value chars',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 10),
+            Slider(
+              value: _value.toDouble(),
+              min: 500,
+              max: 20000,
+              divisions: 39,
+              label: _value.toString(),
+              onChanged: (value) {
+                setState(() {
+                  final rounded = value.round();
+                  _value = (rounded ~/ 500) * 500;
+                });
+              },
+            ),
+            const Text('Range: 500 - 20,000 (500 step)'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 Future<ModelEndpoint?> _pushEndpointPage(
   BuildContext context, {
   ModelEndpoint? initial,
@@ -1021,7 +1089,7 @@ class _EndpointEditPageState extends ConsumerState<_EndpointEditPage> {
   late final TextEditingController _modelController;
   late final TextEditingController _apiKeyController;
   late final TextEditingController _apiVersionController;
-  late final TextEditingController _temperatureController;
+  late double _temperature;
   late final TextEditingController _maxTokensController;
   late final TextEditingController _actualInputCostController;
   late final TextEditingController _actualOutputCostController;
@@ -1047,9 +1115,7 @@ class _EndpointEditPageState extends ConsumerState<_EndpointEditPage> {
     _apiVersionController = TextEditingController(
       text: widget.initial?.apiVersion ?? '2024-06-01',
     );
-    _temperatureController = TextEditingController(
-      text: (widget.initial?.temperature ?? 0.4).toString(),
-    );
+    _temperature = (widget.initial?.temperature ?? 0.4).clamp(0.0, 1.5);
     _maxTokensController = TextEditingController(
       text: (widget.initial?.maxTokens ?? 2048).toString(),
     );
@@ -1077,7 +1143,6 @@ class _EndpointEditPageState extends ConsumerState<_EndpointEditPage> {
     _modelController.dispose();
     _apiKeyController.dispose();
     _apiVersionController.dispose();
-    _temperatureController.dispose();
     _maxTokensController.dispose();
     _actualInputCostController.dispose();
     _actualOutputCostController.dispose();
@@ -1132,8 +1197,7 @@ class _EndpointEditPageState extends ConsumerState<_EndpointEditPage> {
                 provider: _provider,
                 baseUrl: _baseUrlController.text.trim(),
                 model: _modelController.text.trim(),
-                temperature:
-                    double.tryParse(_temperatureController.text.trim()) ?? 0.4,
+                temperature: _temperature,
                 maxTokens:
                     int.tryParse(_maxTokensController.text.trim()) ?? 2048,
                 actualInputCostPerMillion:
@@ -1218,13 +1282,22 @@ class _EndpointEditPageState extends ConsumerState<_EndpointEditPage> {
             ),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _temperatureController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Temperature',
-              border: OutlineInputBorder(),
-            ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Temperature'),
+            subtitle: Text(_temperature.toStringAsFixed(2)),
+          ),
+          Slider(
+            value: _temperature,
+            min: 0.0,
+            max: 1.5,
+            divisions: 30,
+            label: _temperature.toStringAsFixed(2),
+            onChanged: (value) {
+              setState(() {
+                _temperature = value;
+              });
+            },
           ),
           const SizedBox(height: 12),
           TextField(

@@ -5,7 +5,7 @@ A sophisticated Flutter-based chat application with Agentic Search capabilities,
 ## Key Features
 
 ### 🧠 Advanced AI & Search
-- **Multi-LLM Support**: Switch between Gemini, OpenAI, Claude, and local models.
+- **Multi-LLM Support**: Switch between Gemini, Azure OpenAI, OpenAI-compatible endpoints, and local models.
 - **Agentic Search**: 
   - Integrates with SearXNG for privacy-respecting web searches.
   - **Context-Aware Queries**: Automatically generates search queries based on conversation history.

@@ -32,6 +32,7 @@
   - Azure OpenAI
 - 設定画面のセクション分割
   - Search
+    - レンジ値は選択UI（slider/dropdown）を優先
   - System Prompt
   - Speech (TTS)
     - 言語候補は端末一覧から動的取得

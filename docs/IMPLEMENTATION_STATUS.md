@@ -23,6 +23,7 @@
 - 文脈考慮型クエリ生成を実装済み（会話履歴から検索クエリを生成）
 - Agentic Conditional Searchを実装済み（検索要否をLLMが自律判定）
 - HTML検索結果の抽出文字数制限を設定化済み
+- Search設定のレンジ値（反復回数/確信閾値/HTML文字数）を選択UI化
 - Usage Reports画面で日次/月次のトークン・コスト集計を表示
 - 履歴をローカル保存し、再読込・コピー・エクスポート・共有が可能
 - 履歴永続化をJSONからSQLiteへ移行済み（既存JSONの初回自動移行あり）
@@ -42,6 +43,7 @@
 - SpeechのLanguage候補は端末の利用可能言語一覧から自動取得
 - Artifact Security Mode切替を実装済み（Safe / Interactive / Trusted）
 - Artifact表示時にモード別CSP・JS許可・外部遷移制御を適用
+- 主要経路の例外握りつぶしを削減し、警告ログを追加
 - Integrations機能（Skills/SubAgents/MCPレジストリ）を実装済み
 - 有効なSkills/SubAgent/MCP情報をチャット実行時に注入済み
 - MCP実行連携を実装済み（LLMのMCP JSON要求を検出し、HTTPブリッジへツール実行）
@@ -66,7 +68,8 @@
 - コスト計算は入力単価/出力単価（1M tokens基準）の概算
 - トークン数がAPIレスポンスに含まれない場合は推定値で補完
 - Agentic SearchはSearXNG `format=json` が失敗する場合、HTML抽出フォールバックを使用
-- Artifactは `webview_flutter` でレンダリング（今後CSP/制限強化予定）
+- Artifactは `webview_flutter` でレンダリング（モード別CSP/制限を適用済み）
 - 旧 `conversations.json` はSQLite移行時にバックアップ名へリネームされる
 - MCPは現状 HTTP/HTTPS ブリッジ方式のみ実行（`command` にURLを設定）
 - Skill実行は現状「定義内容の要約・手順抽出」を返す軽量実行方式
+- 棚卸しレビュー: `docs/MAINTENANCE_REVIEW_2026-02-13.md`

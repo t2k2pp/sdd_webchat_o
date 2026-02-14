@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../../core/logging/app_logger.dart';
 import 'project_embedding_client.dart';
 import '../../projects/domain/project.dart';
 import '../../projects/domain/project_attachment.dart';
@@ -81,7 +82,13 @@ class ProjectContextResolver {
           continue;
         }
         docs.add(_Doc(name: att.name, text: compact));
-      } catch (_) {}
+      } catch (e, s) {
+        AppLogger.warning(
+          'Failed to load project attachment: ${att.path}',
+          e,
+          s,
+        );
+      }
     }
     return docs;
   }
@@ -262,7 +269,8 @@ class ProjectContextResolver {
         embeddingModel: embeddingModel,
         chunkEmbeddings: vectors,
       );
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.warning('Failed to build hybrid chunk embeddings', e, s);
       return null;
     }
   }
@@ -289,7 +297,12 @@ class ProjectContextResolver {
         out[i] = _cosine(qv, hybrid.chunkEmbeddings[i]);
       }
       return out;
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.warning(
+        'Failed to generate query embedding for hybrid ranking',
+        e,
+        s,
+      );
       return List<double>.filled(chunkCount, 0);
     }
   }
@@ -606,7 +619,8 @@ Future<List<List<double>>?> _loadEmbeddingCache({
               .toList(growable: false),
         )
         .toList(growable: false);
-  } catch (_) {
+  } catch (e, s) {
+    AppLogger.warning('Failed to load project embedding cache', e, s);
     return null;
   }
 }
@@ -629,7 +643,9 @@ Future<void> _saveEmbeddingCache({
       'updatedAt': DateTime.now().toIso8601String(),
     };
     await file.writeAsString(jsonEncode(body), flush: true);
-  } catch (_) {}
+  } catch (e, s) {
+    AppLogger.warning('Failed to save project embedding cache', e, s);
+  }
 }
 
 Future<File> _cacheFile(String projectId) async {

@@ -352,7 +352,8 @@ class ChatController extends Notifier<ChatState> {
         }
       }
       return lines.join('\n\n');
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.warning('Failed to build project context', e, s);
       return '';
     }
   }
@@ -411,7 +412,8 @@ class ChatController extends Notifier<ChatState> {
         );
       }
       return lines.join('\n');
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.warning('Failed to build integration context', e, s);
       return '';
     }
   }
@@ -497,7 +499,8 @@ class ChatController extends Notifier<ChatState> {
       final repo = ref.read(integrationRepositoryProvider);
       final all = await repo.listMcpServers();
       return all.where((e) => e.enabled).toList();
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.warning('Failed to list enabled MCP servers', e, s);
       return const [];
     }
   }
@@ -507,7 +510,8 @@ class ChatController extends Notifier<ChatState> {
       final repo = ref.read(integrationRepositoryProvider);
       final all = await repo.listSkills();
       return all.where((e) => e.enabled).toList();
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.warning('Failed to list enabled skills', e, s);
       return const [];
     }
   }
@@ -617,7 +621,8 @@ class ChatController extends Notifier<ChatState> {
     try {
       final settings = await ref.read(settingsControllerProvider.future);
       return settings.searxngEnabledByDefault;
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.warning('Failed to load default SearXNG switch', e, s);
       return false;
     }
   }
@@ -653,7 +658,8 @@ class ChatController extends Notifier<ChatState> {
         return fallback;
       }
       return oneLine.length <= 24 ? oneLine : '${oneLine.substring(0, 24)}...';
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.warning('Failed to generate conversation title', e, s);
       return fallback;
     }
   }
