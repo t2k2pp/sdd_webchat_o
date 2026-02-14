@@ -1147,6 +1147,8 @@ class _EndpointEditPageState extends ConsumerState<_EndpointEditPage> {
   late final TextEditingController _referenceInputCostController;
   late final TextEditingController _referenceOutputCostController;
   late final TextEditingController _currencyController;
+  bool _loadingModels = false;
+  List<String> _availableModels = const [];
 
   @override
   void initState() {
@@ -1231,6 +1233,12 @@ class _EndpointEditPageState extends ConsumerState<_EndpointEditPage> {
         _provider == LlmProviderType.lmStudio ||
         _provider == LlmProviderType.llamaCpp;
     final needsApiVersion = _provider == LlmProviderType.azureOpenAi;
+    final canFetchModels =
+        _provider == LlmProviderType.ollama ||
+        _provider == LlmProviderType.lmStudio ||
+        _provider == LlmProviderType.llamaCpp ||
+        _provider == LlmProviderType.gemini ||
+        _provider == LlmProviderType.azureOpenAi;
 
     return Scaffold(
       appBar: AppBar(
@@ -1299,6 +1307,7 @@ class _EndpointEditPageState extends ConsumerState<_EndpointEditPage> {
               }
               setState(() {
                 _provider = value;
+                _availableModels = const [];
                 if (!_isEdit) {
                   _baseUrlController.text = _suggestBaseUrl(value);
                   _modelController.text = _suggestModel(value);
@@ -1332,6 +1341,57 @@ class _EndpointEditPageState extends ConsumerState<_EndpointEditPage> {
               border: const OutlineInputBorder(),
             ),
           ),
+          if (canFetchModels) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _loadingModels ? null : _fetchAvailableModels,
+                  icon: _loadingModels
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.download),
+                  label: Text(_loadingModels ? '取得中...' : 'モデル一覧を取得'),
+                ),
+                if (_availableModels.isNotEmpty) ...[
+                  const SizedBox(width: 10),
+                  Text('取得: ${_availableModels.length}件'),
+                ],
+              ],
+            ),
+            if (_availableModels.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _availableModels.contains(_modelController.text)
+                    ? _modelController.text
+                    : null,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Available Models',
+                  border: OutlineInputBorder(),
+                ),
+                items: _availableModels
+                    .map(
+                      (m) => DropdownMenuItem<String>(
+                        value: m,
+                        child: Text(m, overflow: TextOverflow.ellipsis),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
+                  setState(() {
+                    _modelController.text = value;
+                  });
+                },
+              ),
+            ],
+          ],
           const SizedBox(height: 12),
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -1465,6 +1525,170 @@ class _EndpointEditPageState extends ConsumerState<_EndpointEditPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _fetchAvailableModels() async {
+    final baseUrl = _baseUrlController.text.trim();
+    if (baseUrl.isEmpty) {
+      ErrorVisibility.notifyUser(
+        context,
+        userMessage: 'Base URLを先に入力してください',
+        logMessage: 'Model list fetch skipped: baseUrl is empty',
+      );
+      return;
+    }
+
+    setState(() {
+      _loadingModels = true;
+    });
+
+    try {
+      final dio = Dio(
+        BaseOptions(
+          baseUrl: baseUrl,
+          connectTimeout: const Duration(seconds: 6),
+          receiveTimeout: const Duration(seconds: 15),
+        ),
+      );
+      final models = await _fetchModelsByProvider(dio);
+      if (!mounted) {
+        return;
+      }
+      if (models.isEmpty) {
+        ErrorVisibility.notifyUser(
+          context,
+          userMessage: 'モデル一覧を取得できませんでした',
+          logMessage: 'Model list fetch returned no models for $_provider',
+        );
+      }
+      setState(() {
+        _availableModels = models;
+      });
+    } catch (e, s) {
+      if (!mounted) {
+        return;
+      }
+      ErrorVisibility.notifyUser(
+        context,
+        userMessage: 'モデル一覧の取得に失敗しました',
+        logMessage: 'Failed to fetch model list for $_provider',
+        error: e,
+        stackTrace: s,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingModels = false;
+        });
+      }
+    }
+  }
+
+  Future<List<String>> _fetchModelsByProvider(Dio dio) async {
+    final apiKey = _apiKeyController.text.trim();
+
+    switch (_provider) {
+      case LlmProviderType.ollama:
+        final res = await dio.get<Map<String, dynamic>>('/api/tags');
+        final rows = res.data?['models'];
+        return _uniqueSorted(
+          rows is List
+              ? rows
+                    .map((e) => (e as Map<String, dynamic>)['name']?.toString())
+                    .whereType<String>()
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty)
+                    .toList()
+              : const [],
+        );
+      case LlmProviderType.lmStudio:
+      case LlmProviderType.llamaCpp:
+        final headers = <String, String>{};
+        if (apiKey.isNotEmpty) {
+          headers['Authorization'] = 'Bearer $apiKey';
+        }
+        final res = await dio.get<Map<String, dynamic>>(
+          '/v1/models',
+          options: Options(headers: headers),
+        );
+        return _parseModelIdsFromOpenAiCompatible(res.data ?? const {});
+      case LlmProviderType.gemini:
+        if (apiKey.isEmpty) {
+          return const [];
+        }
+        final res = await dio.get<Map<String, dynamic>>(
+          '/v1beta/models',
+          queryParameters: {'key': apiKey},
+        );
+        final rows = res.data?['models'];
+        return _uniqueSorted(
+          rows is List
+              ? rows
+                    .map((e) => (e as Map<String, dynamic>)['name']?.toString())
+                    .whereType<String>()
+                    .map((e) => e.replaceFirst('models/', '').trim())
+                    .where((e) => e.isNotEmpty)
+                    .toList()
+              : const [],
+        );
+      case LlmProviderType.azureOpenAi:
+        final headers = <String, String>{};
+        if (apiKey.isNotEmpty) {
+          headers['api-key'] = apiKey;
+        }
+        final apiVersion = _apiVersionController.text.trim().isEmpty
+            ? '2024-06-01'
+            : _apiVersionController.text.trim();
+        final res = await dio.get<Map<String, dynamic>>(
+          '/openai/deployments',
+          queryParameters: {'api-version': apiVersion},
+          options: Options(headers: headers),
+        );
+        final data = res.data ?? const <String, dynamic>{};
+        final rows =
+            (data['data'] as List<dynamic>?) ??
+            (data['value'] as List<dynamic>?) ??
+            const <dynamic>[];
+        return _uniqueSorted(
+          rows
+              .map((e) {
+                if (e is! Map<String, dynamic>) {
+                  return null;
+                }
+                return (e['id'] ?? e['name'])?.toString();
+              })
+              .whereType<String>()
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList(),
+        );
+    }
+  }
+
+  List<String> _parseModelIdsFromOpenAiCompatible(Map<String, dynamic> json) {
+    final rows = json['data'];
+    if (rows is! List) {
+      return const [];
+    }
+    return _uniqueSorted(
+      rows
+          .map((e) {
+            if (e is! Map<String, dynamic>) {
+              return null;
+            }
+            return e['id']?.toString();
+          })
+          .whereType<String>()
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(),
+    );
+  }
+
+  List<String> _uniqueSorted(List<String> values) {
+    final set = <String>{...values};
+    final list = set.toList()..sort();
+    return list;
   }
 }
 
